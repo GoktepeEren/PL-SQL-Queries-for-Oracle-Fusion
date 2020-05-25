@@ -652,7 +652,7 @@ Where
 
 inhead.CANCELLED_DATE is null
 
--- **Mart Ayındaki Faturaları Getiriyor
+-- **Getting invoices of March
 -- (inhead.Invoice_Date between TO_DATE('01.03.2020', 'dd.MM.yyyy') and  TO_DATE('31.03.2020', 'dd.MM.yyyy'))
 -- (inhead.Invoice_Date between ((:PeriodStartDate)) and  (:PeriodEndDate))
 and inline.CANCELLED_FLAG = 'N'
@@ -664,3 +664,6 @@ Order By
 inhead.INVOICE_DATE DESC,
 inline.Invoice_Id,
 inline.Line_Number 
+
+-- @GoktepeEren - DarkNightX
+

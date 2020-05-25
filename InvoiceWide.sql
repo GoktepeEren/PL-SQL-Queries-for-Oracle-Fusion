@@ -659,7 +659,7 @@ Where
 inhead.CANCELLED_DATE is null
 AND 
 
--- **Mart Ayındaki Faturaları Getiriyor
+-- **Getting invoices of March
 -- (inhead.Invoice_Date between TO_DATE('01.03.2020', 'dd.MM.yyyy') and  TO_DATE('31.03.2020', 'dd.MM.yyyy'))
 (inhead.Invoice_Date between ((:PeriodStartDate)) and  (:PeriodEndDate))
 and inline.CANCELLED_FLAG = 'N'
@@ -1226,3 +1226,5 @@ orheadex.Approved_Date Desc,
 orheadex.PO_HEADER_ID
 
 ) FromOrder
+
+-- @GoktepeEren -- DarkNightX
