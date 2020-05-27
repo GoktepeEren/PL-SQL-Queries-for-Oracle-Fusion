@@ -1217,6 +1217,7 @@ orheadex.Creation_Date between ((:PeriodStartDate)) and  (:PeriodEndDate)
  -- ON orheadex.PO_HEADER_ID = inlinex.PO_HEADER_ID
 -- )
 and 
+-- Eren
 (orheadex.DOCUMENT_STATUS = 'CLOSED FOR RECEIVING' 
 OR orheadex.DOCUMENT_STATUS = 'OPEN')
 -- and (horg.Name like 'DO01%'or horg.Name like 'DO02%')
