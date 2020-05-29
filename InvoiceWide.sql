@@ -35,96 +35,96 @@ inline.PO_LINE_ID,
 orderhead.Segment1 as OrderNumber,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderhead.DOCUMENT_STATUS 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderhead.DOCUMENT_STATUS 
 Else ''
 End as OrderDocumentStatus,
 
 orderline.LINE_NUM as OrderLineNumber,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderline.LINE_STATUS 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderline.LINE_STATUS 
 Else '' 
 End as OrderLineStatus,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderline.ATTRIBUTE1 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderline.ATTRIBUTE1 
 Else ''
 End as OrderLineType,
 
 inline.INVENTORY_ITEM_ID,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then Translate(inline.ITEM_DESCRIPTION , chr(10)||chr(11)||chr(13), '   ')  
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then Translate(inline.ITEM_DESCRIPTION , chr(10)||chr(11)||chr(13), '   ')  
 Else ''
 End as InventoryItemName,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then Translate(orderline.ITEM_DESCRIPTION , chr(10)||chr(11)||chr(13), '   ')  
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then Translate(orderline.ITEM_DESCRIPTION , chr(10)||chr(11)||chr(13), '   ')  
 Else ''
 End as OrderlineDesc,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then Translate(inline.Description, chr(10)||chr(11)||chr(13), '   ') 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then Translate(inline.Description, chr(10)||chr(11)||chr(13), '   ') 
 Else ''
 End as InvoiceLineDescription,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderdist.DELIVER_TO_LOCATION_ID 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderdist.DELIVER_TO_LOCATION_ID 
 Else To_Number('')
 End as OrderLineDeliverToLoc,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then inline.Purchasing_Category_Id
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then inline.Purchasing_Category_Id
 Else To_Number('')
 End as PurchasingCategoryId,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderline.CATEGORY_ID 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderline.CATEGORY_ID 
 Else To_Number('')
 End as OrderLineCategory,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then cate.Category_Name
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then cate.Category_Name
 Else ''
 End as Category_Name,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderline.DISCOUNT 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderline.DISCOUNT 
 Else To_Number('')
 End as OrderLineDiscount,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderline.UOM_CODE 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderline.UOM_CODE 
 Else '' 
 End as OrderLineMeaCode,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderline.Quantity 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderline.Quantity 
 Else To_Number('')
 End as OrderLineQuantity,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderdist.QUANTITY_ORDERED
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderdist.QUANTITY_ORDERED
 Else To_Number('')
 End AS OrderLiQuantityOrdered,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderdist.QUANTITY_DELIVERED 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderdist.QUANTITY_DELIVERED 
 Else To_Number('')
 End AS OrderLiQuantityDelivered,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderdist.QUANTITY_BILLED 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderdist.QUANTITY_BILLED 
 Else To_Number('')
 End AS OrderLiQuantityBilled,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderdist.QUANTITY_CANCELLED 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderdist.QUANTITY_CANCELLED 
 Else To_Number('')
 End AS OrderLiQuantityCanceled,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderline.LIST_PRICE 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderline.LIST_PRICE 
 Else To_Number('')
 End as OrderLineListPrice,
 
@@ -134,7 +134,7 @@ End as OrderLineListPrice,
 -- End OrderLineListPriceUSD,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderline.Unit_PRICE 
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then orderline.Unit_PRICE 
 Else To_Number('')
 End as OrderLineUnitPrice,
 
@@ -166,12 +166,12 @@ End as OrderLineUnitPrice,
 -- End OrderLineWoutTaxAmountUSD,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then Trunc((orderdist.RECOVERABLE_INCLUSIVE_TAX + orderdist.RECOVERABLE_TAX + orderdist.TAX_EXCLUSIVE_AMOUNT),2)
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then Trunc((orderdist.RECOVERABLE_INCLUSIVE_TAX + orderdist.RECOVERABLE_TAX + orderdist.TAX_EXCLUSIVE_AMOUNT),2)
 Else To_Number('')
 End as OrderLineAmountWTax,
 
 CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then  
+When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Or indist.LINE_TYPE_LOOKUP_CODE = 'ITEM' ) Then  
 	Case 
 	WHEN orderhead.CURRENCY_CODE = 'USD' Then Trunc((orderdist.RECOVERABLE_INCLUSIVE_TAX + orderdist.RECOVERABLE_TAX + orderdist.TAX_EXCLUSIVE_AMOUNT),2)
 	Else Trunc(Trunc((orderdist.RECOVERABLE_INCLUSIVE_TAX + orderdist.RECOVERABLE_TAX + orderdist.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(drate.Conversion_Rate,2), 2)
