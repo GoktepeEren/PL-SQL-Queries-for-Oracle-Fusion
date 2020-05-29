@@ -662,7 +662,7 @@ AND
 
 -- **Getting invoices of March
 -- (inhead.Invoice_Date between TO_DATE('01.03.2020', 'dd.MM.yyyy') and  TO_DATE('31.03.2020', 'dd.MM.yyyy'))
-(inhead.Invoice_Date between ((:PeriodStartDate)) and  (:PeriodEndDate))
+inhead.Invoice_Date between ((:PeriodStartDate)) and  (:PeriodEndDate)
 and inline.CANCELLED_FLAG = 'N'
 -- and inhead.Invoice_Date between TO_DATE('01.03.2020', 'dd.MM.yyyy') and  TO_DATE('31.03.2020', 'dd.MM.yyyy')
 -- and (horg.Name like 'DO01%' or  horg.Name like 'DO02%')
@@ -1012,6 +1012,7 @@ CASE
 		From PJF_PROJECTS_ALL_VL vl
 		Where orDistex.PJC_PROJECT_ID = vl.Project_ID)
 	ELSE SubPDesc.Description
+End
 as Project_Name,
 			
 	
@@ -1061,7 +1062,7 @@ Trunc((orDistex.RECOVERABLE_INCLUSIVE_TAX + orDistex.RECOVERABLE_TAX + orDistex.
 Case 
 WHEN orheadex.CURRENCY_CODE = 'USD' Then Trunc((orDistex.RECOVERABLE_INCLUSIVE_TAX + orDistex.RECOVERABLE_TAX + orDistex.TAX_EXCLUSIVE_AMOUNT),2)
 Else Trunc(Trunc((orDistex.RECOVERABLE_INCLUSIVE_TAX + orDistex.RECOVERABLE_TAX + orDistex.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
-End as OrderDistAmountUSD, -- InvoiceDistAmountUSD
+End OrderDistAmountUSD, -- InvoiceDistAmountUSD
 
 --Null as Null20InvoiceLine,
 
@@ -1109,7 +1110,7 @@ Null as Period_Name,
 Null as Accounting_Date,
 Null as InvoiceExchangeDate,
 Null as Null41,
-Null as InvoiceDateMonth,
+TO_CHAR(orheadex.CREATION_DATE, 'YYYY, MONTH')  as OrderDateMonth,
 Null as Null42,
 Null as Null43,
 Null as LinkedPrepaymentDate,
@@ -1224,7 +1225,7 @@ orheadex.Creation_Date between ((:PeriodStartDate)) and  (:PeriodEndDate)
  -- ON orheadex.PO_HEADER_ID = inlinex.PO_HEADER_ID
 -- )
 and 
--- Eren
+
 (orheadex.DOCUMENT_STATUS = 'CLOSED FOR RECEIVING' 
 OR orheadex.DOCUMENT_STATUS = 'OPEN')
 -- and (horg.Name like 'DO01%'or horg.Name like 'DO02%')
