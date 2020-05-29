@@ -130,7 +130,7 @@ End as OrderLineListPrice,
 
 -- Case 
 -- WHEN orderhead.CURRENCY_CODE = 'USD' Then orderline.LIST_PRICE
--- Else Trunc(orderline.LIST_PRICE / TRUNC(dorderrate.Conversion_Rate,2), 2)
+-- Else Trunc(orderline.LIST_PRICE / TRUNC(drate.Conversion_Rate,2), 2)
 -- End OrderLineListPriceUSD,
 
 CASE
@@ -140,14 +140,14 @@ End as OrderLineUnitPrice,
 
 -- Case 
 -- WHEN orderhead.CURRENCY_CODE = 'USD' Then orderline.Unit_PRICE 
--- Else Trunc(orderline.Unit_PRICE  / TRUNC(dorderrate.Conversion_Rate,2), 2)
+-- Else Trunc(orderline.Unit_PRICE  / TRUNC(drate.Conversion_Rate,2), 2)
 -- End OrderLineUnitPriceUSD,
 
 -- Trunc(orderdist.RECOVERABLE_TAX,2) as OrderLineExcTax,
 
 -- Case 
 -- WHEN orderhead.CURRENCY_CODE = 'USD' Then Trunc(orderdist.RECOVERABLE_TAX,2)
--- Else Trunc(Trunc(orderdist.RECOVERABLE_TAX,2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+-- Else Trunc(Trunc(orderdist.RECOVERABLE_TAX,2) / TRUNC(drate.Conversion_Rate,2), 2)
 -- End OrderLineExcTaxUSD,
 
 
@@ -155,14 +155,14 @@ End as OrderLineUnitPrice,
 
 -- Case 
 -- WHEN orderhead.CURRENCY_CODE = 'USD' Then Trunc(orderdist.RECOVERABLE_INCLUSIVE_TAX,2)
--- Else Trunc(Trunc(orderdist.RECOVERABLE_INCLUSIVE_TAX,2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+-- Else Trunc(Trunc(orderdist.RECOVERABLE_INCLUSIVE_TAX,2) / TRUNC(drate.Conversion_Rate,2), 2)
 -- End OrderLineIncTaxUSD,
 
 -- Trunc(orderdist.TAX_EXCLUSIVE_AMOUNT,2) as OrderLineWoutTaxAmount,
 
 -- Case 
 -- WHEN orderhead.CURRENCY_CODE = 'USD' Then Trunc(orderdist.TAX_EXCLUSIVE_AMOUNT,2)
--- Else Trunc(Trunc(orderdist.TAX_EXCLUSIVE_AMOUNT,2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+-- Else Trunc(Trunc(orderdist.TAX_EXCLUSIVE_AMOUNT,2) / TRUNC(drate.Conversion_Rate,2), 2)
 -- End OrderLineWoutTaxAmountUSD,
 
 CASE
@@ -174,32 +174,10 @@ CASE
 When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then  
 	Case 
 	WHEN orderhead.CURRENCY_CODE = 'USD' Then Trunc((orderdist.RECOVERABLE_INCLUSIVE_TAX + orderdist.RECOVERABLE_TAX + orderdist.TAX_EXCLUSIVE_AMOUNT),2)
-	Else Trunc(Trunc((orderdist.RECOVERABLE_INCLUSIVE_TAX + orderdist.RECOVERABLE_TAX + orderdist.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+	Else Trunc(Trunc((orderdist.RECOVERABLE_INCLUSIVE_TAX + orderdist.RECOVERABLE_TAX + orderdist.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(drate.Conversion_Rate,2), 2)
 	End 
 Else TO_NUMBER('') 
 End as OrderLineAmountWTaxUSD,
-
-CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then   
-	Case 
-	WHEN orderhead.CURRENCY_CODE = 'USD' Then 1
-	Else TRUNC(dorderrate.Conversion_Rate,2)
-	End 
-Else To_Number('')
-End 
-as OrderRateUSD,
-
-CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderhead.CURRENCY_CODE 
-Else To_Number('')
-End 
-as OrderCurrency,
-
-CASE
-When indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' Then orderhead.RATE 
-Else To_Number('')
-End 
-as OrderCurrencyRate,
 
 
 orderhead.AGENT_ID	as Buyer,
@@ -457,10 +435,6 @@ Inner Join AP_INVOICE_DISTRIBUTIONS_ALL indist
 ON indist.INVOICE_ID = inline.Invoice_Id and  indist.INVOICE_LINE_NUMBER = inline.LINE_NUMBER and indist.LINE_TYPE_LOOKUP_CODE <> 'NONREC_TAX'
 Left Join PO_LINES_ALL orderline 
 		Inner Join PO_HEADERS_ALL orderhead 
-			Left Join gl_daily_rates dorderrate            
-			ON dorderrate.From_Currency = 'USD' and dorderrate.TO_Currency = orderhead.CURRENCY_CODE
-			And dorderrate.Conversion_Type = 'Corporate' 
-			and dorderrate.CONVERSION_DATE = To_Date(To_Char(orderhead.CREATION_DATE, 'dd.MM.yyyy'),'dd.MM.yyyy')
 		On orderline.PO_HEADER_Id = orderhead.PO_HEADER_Id
 		INNER Join PO_DISTRIBUTIONS_ALL orderdist
 			Inner Join GL_CODE_COMBINATIONS glcodeordist 
@@ -758,9 +732,6 @@ Null as OrderLineListPrice          ,
 Null as OrderLineUnitPrice          ,
 Null as OrderLineAmountWTax         ,
 Null as OrderLineAmountWTaxUSD      ,
-Null as OrderRateUSD                ,
-Null as OrderCurrency               ,
-Null as OrderCurrencyRate           ,
 Null as Buyer                       ,
 Null as PrepayInvoicedId            ,
 Null as LinkedPrepayment            ,
@@ -967,16 +938,8 @@ WHEN orheadex.CURRENCY_CODE = 'USD' Then Trunc((orDistex.RECOVERABLE_INCLUSIVE_T
 Else Trunc(Trunc((orDistex.RECOVERABLE_INCLUSIVE_TAX + orDistex.RECOVERABLE_TAX + orDistex.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
 End orLineexAmountWTaxUSD,
 
-Case 
-WHEN orheadex.CURRENCY_CODE = 'USD' Then 1
-Else TRUNC(dorderrate.Conversion_Rate,2)
-End as OrderRateUSD,
 
-orheadex.CURRENCY_CODE as OrderCurrency,
-orheadex.RATE as OrderCurrencyRate,
-
-
-orheadex.AGENT_ID	as Buyer,
+orheadex.AGENT_ID as Buyer,
 
 Null as Null12,
 Null as Null13,
@@ -1080,11 +1043,14 @@ End OrderDistAmountUSD, -- InvoiceDistAmountUSD
 
 -- Null as Null27,
 
-Null as Null28,
-
 Null as Null29,
 
-Null as Null30,
+Case 
+WHEN orheadex.CURRENCY_CODE = 'USD' Then 1
+Else TRUNC(dorderrate.Conversion_Rate,2)
+End as OrderRateUSD,
+
+orheadex.CURRENCY_CODE,
 
 -- Null as Null31, 
 
@@ -1213,7 +1179,7 @@ and PlaceValue.ATTRIBUTE_CATEGORY = 'ACM_Place_VS'
 Where
 -- Mart ayında oluşturulmuş siparişler
 -- orheadex.Creation_Date between TO_DATE('01.03.2020', 'dd.MM.yyyy') and  TO_DATE('31.03.2020', 'dd.MM.yyyy')
-orheadex.Creation_Date between ((:PeriodStartDate)) and  (:PeriodEndDate)
+orheadex.Creation_Date between (:PeriodStartDate) and  (:PeriodEndDate)
 -- Invoice ile Eşleşmeyen siparişleri getirmek için koşul
 -- and orheadex.PO_HEADER_ID not in 
 -- (
@@ -1226,8 +1192,7 @@ orheadex.Creation_Date between ((:PeriodStartDate)) and  (:PeriodEndDate)
 -- )
 and 
 
-(orheadex.DOCUMENT_STATUS = 'CLOSED FOR RECEIVING' 
-OR orheadex.DOCUMENT_STATUS = 'OPEN')
+(orheadex.DOCUMENT_STATUS = 'CLOSED FOR RECEIVING' OR orheadex.DOCUMENT_STATUS = 'OPEN')
 -- and (horg.Name like 'DO01%'or horg.Name like 'DO02%')
 and horg.Name IN (:CompanyBU)
 Order By
