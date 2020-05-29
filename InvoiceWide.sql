@@ -256,12 +256,14 @@ CASE
 			vl.Segment1
 			From PJF_PROJECTS_ALL_VL vl
 			Where inline.PJC_PROJECT_ID = vl.Project_ID)
-	ELSE
+	
+	When indist.PJC_PROJECT_ID is not null Then
 		(Select 
 			Distinct
 			vl.Segment1
 			From PJF_PROJECTS_ALL_VL vl
 			Where indist.PJC_PROJECT_ID = vl.Project_ID)
+	ELSE  SubPDesc.Description 
 	END as Project_Name,
 	
 	
@@ -273,7 +275,7 @@ CASE
 			Distinct
 			orge.Name
 			From HR_ORGANIZATION_UNITS_F_TL orge
-			Where orge.Language = fnd_Global.Current_Language  
+			Where orge.Language = 'US' 
 			and orge.ORGANIZATION_ID = inline.PJC_ORGANIZATION_ID)
 	ELSE
 		(Select
@@ -281,7 +283,7 @@ CASE
 			orgE.Name
 			From
 			HR_ORGANIZATION_UNITS_F_TL orge
-			Where orge.Language = fnd_Global.Current_Language
+			Where orge.Language = 'US'
 			and orge.ORGANIZATION_ID = indist.PJC_ORGANIZATION_ID)
 	END as Expenditure_Organization,
 
@@ -319,6 +321,7 @@ CASE
 -- Place --------------------------------------------
 
 	PlaceDesc.DESCRIPTION as Place,
+
 
 indist.LINE_TYPE_LOOKUP_CODE as InDistLineType,
 
@@ -376,15 +379,13 @@ inhead.Invoice_Currency_Code as InvoiceCurrency,
 
 inhead.Payment_Currency_Code as PaymentCurrency,
 
---Case 
-	--When ((indist.LINE_TYPE_LOOKUP_CODE = 'ACCRUAL' OR indist.LINE_TYPE_LOOKUP_CODE = 'ITEM') And inline.Line_Number = 1) Then
-		Case
-			When inhead.PAYMENT_STATUS_FLAG = 'P' Then 'Partial Paid' 
-			When inhead.PAYMENT_STATUS_FLAG = 'Y' Then 'Paid' 
-			When inhead.PAYMENT_STATUS_FLAG = 'N' Then 'Not Paid' 
-		End
-	--Else ''
---End
+
+Case
+	When inhead.PAYMENT_STATUS_FLAG = 'P' Then 'Partial Paid' 
+	When inhead.PAYMENT_STATUS_FLAG = 'Y' Then 'Paid' 
+	When inhead.PAYMENT_STATUS_FLAG = 'N' Then 'Not Paid' 
+End
+
 as PaymentStatus,
 	
 Case 
@@ -1003,11 +1004,14 @@ orDistex.PJC_ORGANIZATION_ID as DistPrjOrgId,
 
 -- Project
 
-(Select 
-Distinct
-vl.Segment1
-From PJF_PROJECTS_ALL_VL vl
-Where orDistex.PJC_PROJECT_ID = vl.Project_ID)
+CASE
+    WHEN orDistex.PJC_PROJECT_ID is not null THEN
+		(Select 
+		Distinct
+		vl.Segment1
+		From PJF_PROJECTS_ALL_VL vl
+		Where orDistex.PJC_PROJECT_ID = vl.Project_ID)
+	ELSE SubPDesc.Description
 as Project_Name,
 			
 	
@@ -1052,9 +1056,12 @@ as Expenditure_Organization,
 
 Null as Null48,
 
-Null as Null18,
+Trunc((orDistex.RECOVERABLE_INCLUSIVE_TAX + orDistex.RECOVERABLE_TAX + orDistex.TAX_EXCLUSIVE_AMOUNT),2)  as OrderDistAmount, -- InvoiceDistAmount
 
-Null as Null19,
+Case 
+WHEN orheadex.CURRENCY_CODE = 'USD' Then Trunc((orDistex.RECOVERABLE_INCLUSIVE_TAX + orDistex.RECOVERABLE_TAX + orDistex.TAX_EXCLUSIVE_AMOUNT),2)
+Else Trunc(Trunc((orDistex.RECOVERABLE_INCLUSIVE_TAX + orDistex.RECOVERABLE_TAX + orDistex.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+End as OrderDistAmountUSD, -- InvoiceDistAmountUSD
 
 --Null as Null20InvoiceLine,
 
@@ -1082,7 +1089,7 @@ Null as Null30,
 
 Null as Null32,
 
-Null as Null33,
+'Not Paid Need Link Invoice' as PaidStatus,
 	
 Null as Null34,  
 
