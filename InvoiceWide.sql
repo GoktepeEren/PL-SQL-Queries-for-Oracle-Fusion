@@ -231,17 +231,29 @@ CASE
     WHEN inline.PJC_PROJECT_ID is not null THEN
 		(Select 
 			Distinct
-			vl.Segment1
+			(
+			Case 
+			When vl.Segment1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
+			When vl.Segment1 = 'La Romana Common-Old' Then 'La Romana Common Expenses'
+			Else vl.Segment1
+			End)
 			From PJF_PROJECTS_ALL_VL vl
 			Where inline.PJC_PROJECT_ID = vl.Project_ID)
 	
 	When indist.PJC_PROJECT_ID is not null Then
 		(Select 
 			Distinct
-			vl.Segment1
+			(
+			Case 
+			When vl.Segment1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
+			When vl.Segment1 = 'La Romana Common-Old' Then 'La Romana Common Expenses'
+			Else vl.Segment1
+			End)
 			From PJF_PROJECTS_ALL_VL vl
 			Where indist.PJC_PROJECT_ID = vl.Project_ID)
-	ELSE  SubPDesc.Description 
+	When inline.ATTRIBUTE12 = 'OPRL.CMMN.0001' or indist.ATTRIBUTE12 = 'OPRL.CMMN.0001'  Then 'La Romana Common Expenses'
+	When inline.ATTRIBUTE12 = 'INVT.LRMN.001' or indist.ATTRIBUTE12 = 'INVT.LRMN.001'  Then 'La Romana Common Expenses'
+	Else SubPDesc.Description
 	END as Project_Name,
 	
 	
@@ -971,9 +983,17 @@ CASE
     WHEN orDistex.PJC_PROJECT_ID is not null THEN
 		(Select 
 		Distinct
-		vl.Segment1
+		(
+			Case 
+			When vl.Segment1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
+			When vl.Segment1 = 'La Romana Common-Old' Then 'La Romana Common Expenses'
+			Else vl.Segment1
+			End
+		)
 		From PJF_PROJECTS_ALL_VL vl
 		Where orDistex.PJC_PROJECT_ID = vl.Project_ID)
+	When orDistex.ATTRIBUTE12 = 'OPRL.CMMN.0001' Then 'La Romana Common Expenses'
+	When orDistex.ATTRIBUTE12 = 'INVT.LRMN.001'  Then 'La Romana Common Expenses'	
 	ELSE SubPDesc.Description
 End
 as Project_Name,
