@@ -72,6 +72,19 @@ ON pol.PO_LINE_ID = pod.PO_LINE_ID
 Left Join PJF_PROJECTS_ALL_VL  proc ON proc.Project_Id = pod.PJC_PROJECT_ID
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
 and org.Name IN (:CompanyName)
+and 
+(
+Case 
+When proc.SEGMENT1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
+When proc.SEGMENT1 = 'La Romana Common-Old' Then 'La Romana Common Expenses'
+When proc.SEGMENT1 is not null Then proc.SEGMENT1
+When pod.ATTRIBUTE12 = 'OPRL.CMMN.0001' Then 'La Romana Common Expenses'
+When pod.ATTRIBUTE12 = 'INVT.LRMN.001' Then 'La Romana Common Expenses'
+When pod.ATTRIBUTE12 is not null Then SubPDesc.Description
+Else 'UnselectedProject'
+End
+)  In (:ProjectX)
+and 'Graph' = (:GraphOrDetail)
 Group By 
 EXTRACT(YEAR FROM poh.CREATION_DATE), 
 EXTRACT(MONTH FROM poh.CREATION_DATE), 

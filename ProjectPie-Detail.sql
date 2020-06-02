@@ -115,9 +115,20 @@ Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.
 
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
 and org.Name IN (:CompanyName)
+and 'Detail' = (:GraphOrDetail)
+and 
+(Case 
+When proc.SEGMENT1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
+When proc.SEGMENT1 = 'La Romana Common-Old' Then 'La Romana Common Expenses'
+When proc.SEGMENT1 is not null Then proc.SEGMENT1
+When pod.ATTRIBUTE12 = 'OPRL.CMMN.0001' Then 'La Romana Common Expenses'
+When pod.ATTRIBUTE12 = 'INVT.LRMN.001' Then 'La Romana Common Expenses'
+When pod.ATTRIBUTE12 is not null Then SubPDesc.Description
+Else 'UnselectedProject'
+End) In (:ProjectX)
 -- and EXTRACT(YEAR FROM poh.CREATION_DATE) = 2020 
 -- and EXTRACT(MONTH FROM poh.CREATION_DATE) IN (3,4)
 -- and org.Name IN (:CompanyName)
 -- Group By 
 -- EXTRACT(YEAR FROM poh.CREATION_DATE), EXTRACT(MONTH FROM poh.CREATION_DATE), TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') , org.Name, proc.SEGMENT1, poh.CURRENCY_CODE
-Order By poh.Creation_date DESC
+Order By poh.Creation_date DESC, pol.LINE_NUM
