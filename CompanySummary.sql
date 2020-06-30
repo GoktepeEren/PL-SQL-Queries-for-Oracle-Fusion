@@ -34,6 +34,17 @@ pol.ITEM_ID as ItemId,
 Translate(pol.ITEM_DESCRIPTION, chr(10)||chr(11)||chr(13), '   ')   as LineDesc,
 cate.Category_Name,
 
+(Case 
+When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
+When catitem.Category_Name is null Then 'Undefined Item Category' 
+Else catitem.Category_Name
+End 
+) as ItemCategory_Name,
+
+cateman.Category_Name as ItemCategory_Name1,
+cateman2.Category_Name as ItemCategory_Name2,
+cateman3.Category_Name as ItemCategory_Name3,
+
 
 glcode.Segment2 as Account,
 SUBSTR(glcode.Segment2, 1, 3)  as Account3,
@@ -150,10 +161,30 @@ Inner Join PO_DISTRIBUTIONS_ALL pod
     ON pod.CODE_COMBINATION_ID  = glcode.CODE_COMBINATION_ID
 ON pol.PO_LINE_ID = pod.PO_LINE_ID
 Left Join PJF_PROJECTS_ALL_VL  proc ON proc.Project_Id = pod.PJC_PROJECT_ID
+-- Purchasing Category
 Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.LANGUAGE= 'US'
+-- Item Category
+Left Join EGP_ITEM_CAT_ASSIGNMENTS icatitemcat
+    Inner Join EGP_CATEGORIES_VL catitem 
+        Left Join EGP_CATEGORY_SET_VALID_CATS valid
+            Left Join EGP_Categories_TL cateman 
+                Left Join EGP_CATEGORY_SET_VALID_CATS valid2
+                    Left Join EGP_Categories_TL cateman2 
+                        Left Join EGP_CATEGORY_SET_VALID_CATS valid3
+                            Left Join EGP_Categories_TL cateman3 
+                            ON valid3.PARENT_CATEGORY_ID = cateman3.Category_Id and cateman3.LANGUAGE= 'US'
+                        ON valid3.Category_Id = cateman2.Category_Id
+                    ON valid2.PARENT_CATEGORY_ID = cateman2.Category_Id and cateman2.LANGUAGE= 'US'
+                ON valid2.Category_Id = cateman.Category_Id
+            ON valid.PARENT_CATEGORY_ID = cateman.Category_Id and cateman.LANGUAGE= 'US'
+        ON valid.Category_ID = catitem.Category_Id
+    ON icatitemcat.Category_Id = catitem.Category_Id and (catitem.END_DATE_ACTIVE is null OR catitem.END_DATE_ACTIVE > sysdate)   
+ON pol.ITEM_ID = icatitemcat.Inventory_Item_Id and icatitemcat.CATEGORY_SET_ID  = '300000013087480'
+
 
 
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
+
 -- and EXTRACT(YEAR FROM poh.CREATION_DATE) = 2020 
 -- and EXTRACT(MONTH FROM poh.CREATION_DATE) IN (3,4)
 -- and org.Name IN (:CompanyName)
