@@ -32,18 +32,49 @@ pol.LINE_NUM as LineNumber,
 pol.ATTRIBUTE1 as LineType,
 pol.ITEM_ID as ItemId,
 Translate(pol.ITEM_DESCRIPTION, chr(10)||chr(11)||chr(13), '   ')   as LineDesc,
-cate.Category_Name,
+Initcap(cate.Category_Name),
 
 (Case 
 When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
 When catitem.Category_Name is null Then 'Undefined Item Category' 
-Else catitem.Category_Name
+Else Initcap(catitem.Category_Name)
 End 
 ) as ItemCategory_Name,
 
-cateman.Category_Name as ItemCategory_Name1,
-cateman2.Category_Name as ItemCategory_Name2,
-cateman3.Category_Name as ItemCategory_Name3,
+
+(Case 
+When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
+When catitem.Category_Name is null Then 'Undefined Item Category' 
+When cateman.Category_Name is null Then 'Undefined Item Category'
+Else Initcap(cateman.Category_Name)
+End 
+) as ItemCategory_Name1,
+
+
+(Case 
+When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
+When catitem.Category_Name is null Then 'Undefined Item Category' 
+When cateman.Category_Name is null Then 'Undefined Item Category'
+When cateman2.Category_Name is null Then Initcap(cateman.Category_Name) 
+Else Initcap(cateman2.Category_Name)
+End 
+) as ItemCategory_Name2,
+
+-- Optional can added
+-- (Case 
+-- When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
+-- When catitem.Category_Name is null Then 'Undefined Item Category' 
+-- When cateman.Category_Name is null Then 'Undefined Item Category'
+-- When cateman2.Category_Name is null Then cateman.Category_Name 
+-- When cateman3.Category_Name is null Then cateman2.Category_Name 
+-- Else cateman3.Category_Name
+-- End 
+-- ) as ItemCategory_Name3,
+
+
+-- cateman.Category_Name as ItemCategory_Name1,
+-- cateman2.Category_Name as ItemCategory_Name2,
+-- cateman3.Category_Name as ItemCategory_Name3,
 
 
 glcode.Segment2 as Account,
@@ -170,10 +201,11 @@ Left Join EGP_ITEM_CAT_ASSIGNMENTS icatitemcat
             Left Join EGP_Categories_TL cateman 
                 Left Join EGP_CATEGORY_SET_VALID_CATS valid2
                     Left Join EGP_Categories_TL cateman2 
-                        Left Join EGP_CATEGORY_SET_VALID_CATS valid3
-                            Left Join EGP_Categories_TL cateman3 
-                            ON valid3.PARENT_CATEGORY_ID = cateman3.Category_Id and cateman3.LANGUAGE= 'US'
-                        ON valid3.Category_Id = cateman2.Category_Id
+                        -- Optioanlly can added
+                        -- Left Join EGP_CATEGORY_SET_VALID_CATS valid3
+                        --     Left Join EGP_Categories_TL cateman3 
+                        --     ON valid3.PARENT_CATEGORY_ID = cateman3.Category_Id and cateman3.LANGUAGE= 'US'
+                        -- ON valid3.Category_Id = cateman2.Category_Id
                     ON valid2.PARENT_CATEGORY_ID = cateman2.Category_Id and cateman2.LANGUAGE= 'US'
                 ON valid2.Category_Id = cateman.Category_Id
             ON valid.PARENT_CATEGORY_ID = cateman.Category_Id and cateman.LANGUAGE= 'US'
@@ -190,4 +222,4 @@ Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR 
 -- and org.Name IN (:CompanyName)
 -- Group By 
 -- EXTRACT(YEAR FROM poh.CREATION_DATE), EXTRACT(MONTH FROM poh.CREATION_DATE), TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') , org.Name, proc.SEGMENT1, poh.CURRENCY_CODE
-Order By poh.Creation_date DESC, pol.LINE_NUM
+Order By glcode.Segment2, poh.Creation_date DESC, pol.LINE_NUM

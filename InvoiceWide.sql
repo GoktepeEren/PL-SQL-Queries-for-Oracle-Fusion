@@ -1128,7 +1128,6 @@ Inner Join PO_DISTRIBUTIONS_ALL orDistex
 					Inner Join FND_VS_VALUES_TL valAccoutN 
 					ON valAccout.Value_Id = valAccoutN.Value_Id 
 					and valAccoutN.LANGUAGE= FND_GLOBAL.Current_Language
-					
 				ON valAccout.Value = glcode.Segment2 and valAccout.ATTRIBUTE_CATEGORY = 'ACM_Account'
 			ON orDistex.CODE_COMBINATION_ID  = glcode.CODE_COMBINATION_ID
 ON orDistex.PO_LINE_ID = orLineex.PO_LINE_ID
