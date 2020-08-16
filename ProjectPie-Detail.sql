@@ -4,9 +4,7 @@ SELECT
 
 -- EXTRACT(MONTH FROM poh.CREATION_DATE) as CreationMonthText,
 
--- TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') as CreationMonth,
-
-org.Name as Company,
+TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') as CreationMonth,
 
 Case 
 When proc.SEGMENT1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
@@ -19,8 +17,11 @@ Else 'UnselectedProject'
 End
 as ProjectName,
 
+org.Name as Company,
+
 poh.Segment1 as OrderNumber,
 poh.DOCUMENT_STATUS as OrderDocumentStatus,
+poh.COMMENTS as OrderDesc,
 sup.VENDOR_NAME as SuppName,
 term.Name as Term_Name,
 
@@ -90,8 +91,8 @@ Inner Join PO_HEADERS_ALL poh
 	And dorderrate.Conversion_Type = 'Corporate' 
 	and dorderrate.CONVERSION_DATE = To_Date(To_Char(poh.CREATION_DATE, 'dd.MM.yyyy'),'dd.MM.yyyy')
     Inner Join PER_PERSON_NAMES_F perf 
-    ON poh.Agent_Id = perf.PERSON_ID and perf.Name_Type = 'GLOBAL'
-ON pol.PO_HEADER_ID = poh.PO_HEADER_ID and poh.CREATION_DATE between (:PeriodStartDate) and  (:PeriodEndDate)
+    ON poh.Agent_Id = perf.PERSON_ID and perf.Name_Type = 'GLOBAL' and Trunc(Sysdate) between perf.EFFECTIVE_START_DATE and perf.EFFECTIVE_End_DATE
+ON pol.PO_HEADER_ID = poh.PO_HEADER_ID 
 -- and poh.CREATION_DATE between (:PeriodStartDate) and  (:PeriodEndDate)
 Inner Join PO_DISTRIBUTIONS_ALL pod 
     Left Join FND_VS_VALUES_B SubPValue
@@ -114,8 +115,6 @@ Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.
 
 
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
-and org.Name IN (:CompanyName)
-and 'Detail' = (:GraphOrDetail)
 and 
 (Case 
 When proc.SEGMENT1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
@@ -126,6 +125,10 @@ When pod.ATTRIBUTE12 = 'INVT.LRMN.001' Then 'La Romana Common Expenses'
 When pod.ATTRIBUTE12 is not null Then SubPDesc.Description
 Else 'UnselectedProject'
 End) In (:ProjectX)
+and TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') IN (:Period)
+and org.Name IN (:CompanyName)
+and 'Detail' = (:GraphOrDetail)
+
 -- and EXTRACT(YEAR FROM poh.CREATION_DATE) = 2020 
 -- and EXTRACT(MONTH FROM poh.CREATION_DATE) IN (3,4)
 -- and org.Name IN (:CompanyName)
