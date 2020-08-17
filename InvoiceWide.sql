@@ -645,11 +645,19 @@ Where
 
 inhead.CANCELLED_DATE is null
 AND 
-
 -- **Getting invoices of March
 -- (inhead.Invoice_Date between TO_DATE('01.03.2020', 'dd.MM.yyyy') and  TO_DATE('31.03.2020', 'dd.MM.yyyy'))
-inhead.Invoice_Date between ((:PeriodStartDate)) and  (:PeriodEndDate)
+inhead.Invoice_Date between (:PeriodStartDate) and  (:PeriodEndDate)
 and inline.CANCELLED_FLAG = 'N'
+-- Prepayment olmayan satırları ve Eşleşip Prepayment olan belirtilen tarihler arasında olan 
+and (inline.Line_Type_Lookup_Code != 'PREPAY'
+OR (inline.Line_Type_Lookup_Code = 'PREPAY' and 
+(Select
+prepay.Invoice_Date
+From 
+AP_INVOICES_ALL prepay 
+Where prepay.Invoice_Id = inline.PREPAY_INVOICE_ID) Between (:PeriodStartDate) and  (:PeriodEndDate) ) ) 
+and inhead.VENDOR_ID != '300000009593655' -- Intercompany 'Acun Media Production DR SRL' 
 -- and inhead.Invoice_Date between TO_DATE('01.03.2020', 'dd.MM.yyyy') and  TO_DATE('31.03.2020', 'dd.MM.yyyy')
 -- and (horg.Name like 'DO01%' or  horg.Name like 'DO02%')
 and horg.Name IN (:CompanyBU)
@@ -661,194 +669,194 @@ inline.Line_Number
 
 UNION ALL
 
-Select
-FromExtTransaciton.*
-From 
-(
-Select
-'FromExtTransaciton' as TableType,
-exttra.BUSINESS_UNIT_ID as BusinessUnit,
-horgext.Name as CompanyName,
+-- Select
+-- FromExtTransaciton.*
+-- From 
+-- (
+-- Select
+-- 'FromExtTransaciton' as TableType,
+-- exttra.BUSINESS_UNIT_ID as BusinessUnit,
+-- horgext.Name as CompanyName,
 
-exttra.EXTERNAL_TRANSACTION_ID as ExTransactionId,
-To_Char(exttra.TRANSACTION_ID) as TransactionNumber,
-
-
-Case exttra.TRANSACTION_TYPE
-When 'ACH'		Then 'Automated clearing house'
-When 'BKA' 		Then 'Bank adjustment'
-When 'BKF' 		Then 'Fee'
-When 'BNB'		Then 'Banka Belgesi'
-When 'CHK'		Then 'Check'
-When 'EFT'		Then 'Electronic funds transfer'
-When 'INT'		Then 'Interest'
-When 'KRK'		Then 'Credit Card'
-When 'KTD'		Then 'Kasa Tediye'
-When 'KTH'		Then 'Kasa Tahsil'
-When 'LBX'		Then 'Lockbox'
-When 'MSC'		Then 'Miscellaneous'
-When 'ORA_REV'	Then 'Reversal'
-When 'ZBA' 		Then 'Zero balancing'
-Else '-'
-End as TRANSACTIONType,
-
-Translate(exttra.DESCRIPTION, chr(10)||chr(11)||chr(13), '   ')  as TransactionDesc,
-
-Null as Supp,
-Null as SuppSite,
-'External Transactions' as SuppName,
-Null as SuppSiteName,
-
-Null as TermsId,
-Null as TermName,
-
-Null as TraType,
-Null as LineNum,
-exttra.SOURCE,
-
-Null as orderid,
-Null as orderlineid,
-
-Null as ordernumber,
-
-Case
-When exttra.STATUS = 'UNR' Then 'Unreconciled'
-When exttra.STATUS = 'UNR' Then 'Reconciled' 
-ELSE ''
-End as TransactionStatus,
-
-Null as OrLineNumber,
-Null as LineStatus,
-
-Null as LineType,
-Null as InvItemId,
-Null as InvItemName,
-
-Null as OrderLineDesc,
-Null as InvoiceLineDescription,
-
-Null as OrderLineDeliverToLoc,
-Null as CatId,
-
-Null as OrderLineCategory,
-Null as Category_Name,
-Null as OrderLineDiscount,
-Null as OrderLineMeaCode			,
-Null as OrderLineQuantity           ,
-Null as OrderLiQuantityOrdered      ,
-
-Null as OrderLiQuantityDelivered    ,
-Null as OrderLiQuantityBilled       ,
-Null as OrderLiQuantityCanceled     ,
-Null as OrderLineListPrice          ,
-Null as OrderLineUnitPrice          ,
-Null as OrderLineAmountWTax         ,
-Null as OrderLineAmountWTaxUSD      ,
-Null as Buyer                       ,
-Null as PrepayInvoicedId            ,
-Null as LinkedPrepayment            ,
-Null as PrepayLineNumber            ,
-Null as TaxRateCode                 ,
-Null as Tax_Rate                    ,
+-- exttra.EXTERNAL_TRANSACTION_ID as ExTransactionId,
+-- To_Char(exttra.TRANSACTION_ID) as TransactionNumber,
 
 
-exttra.OFFSET_CCID as AccountId,
-glcodeext.Segment2 as Account,
-valAccoutNext.Description as AccountDescription,
+-- Case exttra.TRANSACTION_TYPE
+-- When 'ACH'		Then 'Automated clearing house'
+-- When 'BKA' 		Then 'Bank adjustment'
+-- When 'BKF' 		Then 'Fee'
+-- When 'BNB'		Then 'Banka Belgesi'
+-- When 'CHK'		Then 'Check'
+-- When 'EFT'		Then 'Electronic funds transfer'
+-- When 'INT'		Then 'Interest'
+-- When 'KRK'		Then 'Credit Card'
+-- When 'KTD'		Then 'Kasa Tediye'
+-- When 'KTH'		Then 'Kasa Tahsil'
+-- When 'LBX'		Then 'Lockbox'
+-- When 'MSC'		Then 'Miscellaneous'
+-- When 'ORA_REV'	Then 'Reversal'
+-- When 'ZBA' 		Then 'Zero balancing'
+-- Else '-'
+-- End as TRANSACTIONType,
 
-(valAccoutNext.Description || ' - ' || glcodeext.Segment2) as AccountWideDesc,
+-- Translate(exttra.DESCRIPTION, chr(10)||chr(11)||chr(13), '   ')  as TransactionDesc,
+
+-- Null as Supp,
+-- Null as SuppSite,
+-- 'External Transactions' as SuppName,
+-- Null as SuppSiteName,
+
+-- Null as TermsId,
+-- Null as TermName,
+
+-- Null as TraType,
+-- Null as LineNum,
+-- exttra.SOURCE,
+
+-- Null as orderid,
+-- Null as orderlineid,
+
+-- Null as ordernumber,
+
+-- Case
+-- When exttra.STATUS = 'UNR' Then 'Unreconciled'
+-- When exttra.STATUS = 'UNR' Then 'Reconciled' 
+-- ELSE ''
+-- End as TransactionStatus,
+
+-- Null as OrLineNumber,
+-- Null as LineStatus,
+
+-- Null as LineType,
+-- Null as InvItemId,
+-- Null as InvItemName,
+
+-- Null as OrderLineDesc,
+-- Null as InvoiceLineDescription,
+
+-- Null as OrderLineDeliverToLoc,
+-- Null as CatId,
+
+-- Null as OrderLineCategory,
+-- Null as Category_Name,
+-- Null as OrderLineDiscount,
+-- Null as OrderLineMeaCode			,
+-- Null as OrderLineQuantity           ,
+-- Null as OrderLiQuantityOrdered      ,
+
+-- Null as OrderLiQuantityDelivered    ,
+-- Null as OrderLiQuantityBilled       ,
+-- Null as OrderLiQuantityCanceled     ,
+-- Null as OrderLineListPrice          ,
+-- Null as OrderLineUnitPrice          ,
+-- Null as OrderLineAmountWTax         ,
+-- Null as OrderLineAmountWTaxUSD      ,
+-- Null as Buyer                       ,
+-- Null as PrepayInvoicedId            ,
+-- Null as LinkedPrepayment            ,
+-- Null as PrepayLineNumber            ,
+-- Null as TaxRateCode                 ,
+-- Null as Tax_Rate                    ,
+
+
+-- exttra.OFFSET_CCID as AccountId,
+-- glcodeext.Segment2 as Account,
+-- valAccoutNext.Description as AccountDescription,
+
+-- (valAccoutNext.Description || ' - ' || glcodeext.Segment2) as AccountWideDesc,
 
 
 
-Null as LineProjectId,
-Null as LineOrganizationId,
-Null as DistProjId,
-Null as DistPrjOrgId,
-Null as Project_Name,
-Null as Expenditure_Organization,
+-- Null as LineProjectId,
+-- Null as LineOrganizationId,
+-- Null as DistProjId,
+-- Null as DistPrjOrgId,
+-- Null as Project_Name,
+-- Null as Expenditure_Organization,
 
-Null as BusinessFunction,
-Null as Main_Project,
-Null as Sub_Project,
-Null as ProcessType,
-Null as Member_Type,
-Null as Member,
-Null as Place,
+-- Null as BusinessFunction,
+-- Null as Main_Project,
+-- Null as Sub_Project,
+-- Null as ProcessType,
+-- Null as Member_Type,
+-- Null as Member,
+-- Null as Place,
 
-Null as InDistLineType,
+-- Null as InDistLineType,
 
-exttra.AMOUNT as Amount,
+-- exttra.AMOUNT as Amount,
 
-CASE
-When exttra.CURRENCY_CODE = 'USD' Then exttra.AMOUNT 
-Else TRUNC(exttra.AMOUNT  / TRUNC(drateext.Conversion_Rate,2),2) 
-End as AmountUsd,
+-- CASE
+-- When exttra.CURRENCY_CODE = 'USD' Then exttra.AMOUNT 
+-- Else TRUNC(exttra.AMOUNT  / TRUNC(drateext.Conversion_Rate,2),2) 
+-- End as AmountUsd,
 
-Null as InvoiceExchangeRate,
+-- Null as InvoiceExchangeRate,
 
-Case 
-WHEN exttra.CURRENCY_CODE = 'USD' Then 1
-Else TRUNC(drateext.Conversion_Rate,2)
-End as DailyRateUSD,
+-- Case 
+-- WHEN exttra.CURRENCY_CODE = 'USD' Then 1
+-- Else TRUNC(drateext.Conversion_Rate,2)
+-- End as DailyRateUSD,
 
-exttra.CURRENCY_CODE as TransCurrency,
+-- exttra.CURRENCY_CODE as TransCurrency,
 
-Null as PaymentCurrency,
-'Paid' as PaymentStatus,
+-- Null as PaymentCurrency,
+-- 'Paid' as PaymentStatus,
 
-exttra.AMOUNT as PaidAmount,
+-- exttra.AMOUNT as PaidAmount,
 
-CASE
-When exttra.CURRENCY_CODE = 'USD' Then exttra.AMOUNT 
-Else TRUNC(exttra.AMOUNT  / TRUNC(drateext.Conversion_Rate,2),2) 
-End as PaidAmountUsd,
+-- CASE
+-- When exttra.CURRENCY_CODE = 'USD' Then exttra.AMOUNT 
+-- Else TRUNC(exttra.AMOUNT  / TRUNC(drateext.Conversion_Rate,2),2) 
+-- End as PaidAmountUsd,
 
 
-exttra.Bank_Account_Id as BankAccountId,
+-- exttra.Bank_Account_Id as BankAccountId,
 
-Null as OrderLineStartPeriodDate,
-Null as OrderLineEndPeriodDate,
-Null as OrderCreationDate,
-Null as OrderSubmitDate,
-Null as OrderApprovedDate,
-Null as Terms_Date,
-Null as Period_Name,
-Null as Accounting_Date,
-Null as InvoiceExchangeDate,
-exttra.CREATION_DATE as TraCreationDate,
-TO_CHAR(exttra.TRANSACTION_DATE, 'YYYY, MONTH') as TransactionDateMonth,
-exttra.TRANSACTION_DATE as TransactionDate,
-Null as InvoiceCreationBy,
-Null as LinkedPrepaymentDate,
+-- Null as OrderLineStartPeriodDate,
+-- Null as OrderLineEndPeriodDate,
+-- Null as OrderCreationDate,
+-- Null as OrderSubmitDate,
+-- Null as OrderApprovedDate,
+-- Null as Terms_Date,
+-- Null as Period_Name,
+-- Null as Accounting_Date,
+-- Null as InvoiceExchangeDate,
+-- exttra.CREATION_DATE as TraCreationDate,
+-- TO_CHAR(exttra.TRANSACTION_DATE, 'YYYY, MONTH') as TransactionDateMonth,
+-- exttra.TRANSACTION_DATE as TransactionDate,
+-- Null as InvoiceCreationBy,
+-- Null as LinkedPrepaymentDate,
 
-Null as LineCanceled,
-Null as InvoiceCanceledDate,
-Null as InvoiceCanceledAmount
+-- Null as LineCanceled,
+-- Null as InvoiceCanceledDate,
+-- Null as InvoiceCanceledAmount
 
-From 
-CE_EXTERNAL_TRANSACTIONS exttra
-	Inner Join GL_CODE_COMBINATIONS glcodeext
-		Inner Join FND_VS_VALUES_B valAccoutext
-			Inner Join FND_VS_VALUES_TL valAccoutNext 
-			ON valAccoutext.Value_Id = valAccoutNext.Value_Id 
-			and valAccoutNext.LANGUAGE= FND_GLOBAL.Current_Language
+-- From 
+-- CE_EXTERNAL_TRANSACTIONS exttra
+-- 	Inner Join GL_CODE_COMBINATIONS glcodeext
+-- 		Inner Join FND_VS_VALUES_B valAccoutext
+-- 			Inner Join FND_VS_VALUES_TL valAccoutNext 
+-- 			ON valAccoutext.Value_Id = valAccoutNext.Value_Id 
+-- 			and valAccoutNext.LANGUAGE= FND_GLOBAL.Current_Language
 			
-		ON valAccoutext.Value = glcodeext.Segment2 and valAccoutext.ATTRIBUTE_CATEGORY = 'ACM_Account'
-	ON exttra.OFFSET_CCID  = glcodeext.CODE_COMBINATION_ID
-	Inner Join hr_organization_units horgext
-    ON horgext.Organization_Id = exttra.BUSINESS_UNIT_ID
-	Left Join gl_daily_rates drateext            
-	ON drateext.From_Currency = 'USD' and drateext.TO_Currency = exttra.CURRENCY_CODE
-	And drateext.Conversion_Type = 'Corporate'
-	and drateext.CONVERSION_DATE = exttra.TRANSACTION_DATE	
-Where 
-exttra.STATUS <> 'VOID'
-and horgext.Name IN (:CompanyBU)
-and (exttra.TRANSACTION_DATE between ((:PeriodStartDate)) and  (:PeriodEndDate))
-Order By exttra.TRANSACTION_DATE Desc
-) FromExtTransaciton
+-- 		ON valAccoutext.Value = glcodeext.Segment2 and valAccoutext.ATTRIBUTE_CATEGORY = 'ACM_Account'
+-- 	ON exttra.OFFSET_CCID  = glcodeext.CODE_COMBINATION_ID
+-- 	Inner Join hr_organization_units horgext
+--     ON horgext.Organization_Id = exttra.BUSINESS_UNIT_ID
+-- 	Left Join gl_daily_rates drateext            
+-- 	ON drateext.From_Currency = 'USD' and drateext.TO_Currency = exttra.CURRENCY_CODE
+-- 	And drateext.Conversion_Type = 'Corporate'
+-- 	and drateext.CONVERSION_DATE = exttra.TRANSACTION_DATE	
+-- Where 
+-- exttra.STATUS <> 'VOID'
+-- and horgext.Name IN (:CompanyBU)
+-- and (exttra.TRANSACTION_DATE between ((:PeriodStartDate)) and  (:PeriodEndDate))
+-- Order By exttra.TRANSACTION_DATE Desc
+-- ) FromExtTransaciton
 
-UNION ALL 
+-- UNION ALL 
 
 Select FromOrder.*
 From 
@@ -1128,6 +1136,7 @@ Inner Join PO_DISTRIBUTIONS_ALL orDistex
 					Inner Join FND_VS_VALUES_TL valAccoutN 
 					ON valAccout.Value_Id = valAccoutN.Value_Id 
 					and valAccoutN.LANGUAGE= FND_GLOBAL.Current_Language
+					
 				ON valAccout.Value = glcode.Segment2 and valAccout.ATTRIBUTE_CATEGORY = 'ACM_Account'
 			ON orDistex.CODE_COMBINATION_ID  = glcode.CODE_COMBINATION_ID
 ON orDistex.PO_LINE_ID = orLineex.PO_LINE_ID
