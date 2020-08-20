@@ -24,18 +24,18 @@ End
 as ProjectName,
 
 poh.Segment1 as OrderNumber,
-poh.DOCUMENT_STATUS as OrderDocumentStatus,
+Initcap(poh.DOCUMENT_STATUS) as OrderDocumentStatus,
 sup.VENDOR_NAME as SuppName,
 term.Name as Term_Name,
 
 pol.LINE_NUM as LineNumber,
 pol.ATTRIBUTE1 as LineType,
 pol.ITEM_ID as ItemId,
-Translate(pol.ITEM_DESCRIPTION, chr(10)||chr(11)||chr(13), '   ')   as LineDesc,
+Translate(Initcap(pol.ITEM_DESCRIPTION), chr(10)||chr(11)||chr(13), '   ')   as LineDesc,
 Initcap(cate.Category_Name) as Category_Name ,
 
 (Case 
-When pol.ITEM_ID is null Then Initcap(cate.Category_Name)
+When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
 When catitem.Category_Name is null Then 'Undefined Item Category' 
 Else Initcap(catitem.Category_Name)
 End 
@@ -43,7 +43,7 @@ End
 
 
 (Case 
-When pol.ITEM_ID is null Then Initcap(cate.Category_Name)
+When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
 When catitem.Category_Name is null Then 'Undefined Item Category' 
 When cateman.Category_Name is null Then 'Undefined Item Category'
 Else Initcap(cateman.Category_Name)
@@ -52,7 +52,7 @@ End
 
 
 (Case 
-When pol.ITEM_ID is null Then Initcap(cate.Category_Name)
+When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
 When catitem.Category_Name is null Then 'Undefined Item Category' 
 When cateman.Category_Name is null Then 'Undefined Item Category'
 When cateman2.Category_Name is null Then Initcap(cateman.Category_Name) 
@@ -61,15 +61,15 @@ End
 ) as ItemCategory_Name2,
 
 -- Optional can added
-(Case 
-When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
-When catitem.Category_Name is null Then 'Undefined Item Category' 
-When cateman.Category_Name is null Then 'Undefined Item Category'
-When cateman2.Category_Name is null Then  Initcap(cateman.Category_Name) 
-When cateman3.Category_Name is null Then  Initcap(cateman2.Category_Name) 
-Else  Initcap(cateman3.Category_Name)
-End 
-) as ItemCategory_Name3,
+-- (Case 
+-- When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
+-- When catitem.Category_Name is null Then 'Undefined Item Category' 
+-- When cateman.Category_Name is null Then 'Undefined Item Category'
+-- When cateman2.Category_Name is null Then cateman.Category_Name 
+-- When cateman3.Category_Name is null Then cateman2.Category_Name 
+-- Else cateman3.Category_Name
+-- End 
+-- ) as ItemCategory_Name3,
 
 
 -- cateman.Category_Name as ItemCategory_Name1,
@@ -105,10 +105,18 @@ pol.Unit_PRICE as LineUnitPrice,
 (Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)) as AmountOrderCurrencyWoutTax,
 
 -- Sum
-(Case 
+(
+    Case 
 WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
 Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
 End) AmountUSD,
+
+-- Sum
+(
+    Case 
+WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)
+Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+End) AmountWitoutUSD,
 
 (Case
 When org.Name like 'DO%' Then
@@ -216,10 +224,10 @@ Left Join EGP_ITEM_CAT_ASSIGNMENTS icatitemcat
                 Left Join EGP_CATEGORY_SET_VALID_CATS valid2
                     Left Join EGP_Categories_TL cateman2 
                         -- Optioanlly can added
-                        Left Join EGP_CATEGORY_SET_VALID_CATS valid3
-                            Left Join EGP_Categories_TL cateman3 
-                            ON valid3.PARENT_CATEGORY_ID = cateman3.Category_Id and cateman3.LANGUAGE= 'US'
-                        ON valid3.Category_Id = cateman2.Category_Id
+                        -- Left Join EGP_CATEGORY_SET_VALID_CATS valid3
+                        --     Left Join EGP_Categories_TL cateman3 
+                        --     ON valid3.PARENT_CATEGORY_ID = cateman3.Category_Id and cateman3.LANGUAGE= 'US'
+                        -- ON valid3.Category_Id = cateman2.Category_Id
                     ON valid2.PARENT_CATEGORY_ID = cateman2.Category_Id and cateman2.LANGUAGE= 'US'
                 ON valid2.Category_Id = cateman.Category_Id
             ON valid.PARENT_CATEGORY_ID = cateman.Category_Id and cateman.LANGUAGE= 'US'
@@ -230,10 +238,18 @@ ON pol.ITEM_ID = icatitemcat.Inventory_Item_Id and icatitemcat.CATEGORY_SET_ID  
 
 
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
-
--- and EXTRACT(YEAR FROM poh.CREATION_DATE) = 2020 
--- and EXTRACT(MONTH FROM poh.CREATION_DATE) IN (3,4)
--- and org.Name IN (:CompanyName)
--- Group By 
--- EXTRACT(YEAR FROM poh.CREATION_DATE), EXTRACT(MONTH FROM poh.CREATION_DATE), TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') , org.Name, proc.SEGMENT1, poh.CURRENCY_CODE
+and TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') = (:Period)
+and org.Name IN (:Company)
+and 
+(
+    (Trim(Initcap(cate.Category_Name)) IN (:PurchasingCategory))
+    OR 
+    ((Case 
+    When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
+    When catitem.Category_Name is null Then 'Undefined Item Category' 
+    Else Initcap(catitem.Category_Name)
+    End) = (:ItemCategory))
+    OR 
+    ((glcode.Segment2 || ' - ' || valAccoutN.Description) = (:Account))
+)
 Order By poh.Creation_date DESC, pol.LINE_NUM
