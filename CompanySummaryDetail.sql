@@ -241,15 +241,15 @@ Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR 
 and TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') = (:Period)
 and org.Name IN (:Company)
 and 
-(
-    (Trim(Initcap(cate.Category_Name)) IN (:PurchasingCategory))
-    OR 
+
+    (Trim(Initcap(cate.Category_Name)) Like '%' || (:PurchasingCategory) || '%')
+    And 
     ((Case 
     When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
     When catitem.Category_Name is null Then 'Undefined Item Category' 
     Else Initcap(catitem.Category_Name)
-    End) = (:ItemCategory))
-    OR 
-    ((glcode.Segment2 || ' - ' || valAccoutN.Description) = (:Account))
-)
+    End) Like '%' || (:ItemCategory) || '%')
+    And 
+    ((glcode.Segment2 || ' - ' || valAccoutN.Description) Like '%' || (:Account) || '%')
+
 Order By poh.Creation_date DESC, pol.LINE_NUM
