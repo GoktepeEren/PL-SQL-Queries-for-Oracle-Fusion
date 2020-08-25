@@ -31,6 +31,7 @@ term.Name as Term_Name,
 pol.LINE_NUM as LineNumber,
 pol.ATTRIBUTE1 as LineType,
 pol.ITEM_ID as ItemId,
+tbl_item.Item_Number as ItemNumber,
 Translate(Initcap(pol.ITEM_DESCRIPTION), chr(10)||chr(11)||chr(13), '   ')   as LineDesc,
 Initcap(cate.Category_Name) as Category_Name ,
 
@@ -214,6 +215,8 @@ Inner Join PO_DISTRIBUTIONS_ALL pod
     ON pod.CODE_COMBINATION_ID  = glcode.CODE_COMBINATION_ID
 ON pol.PO_LINE_ID = pod.PO_LINE_ID
 Left Join PJF_PROJECTS_ALL_VL  proc ON proc.Project_Id = pod.PJC_PROJECT_ID
+-- For Item Number 
+Left Join EGP_SYSTEM_ITEMS_B tbl_item ON pol.Item_Id = tbl_item.Inventory_Item_Id 
 -- Purchasing Category
 Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.LANGUAGE= 'US'
 -- Item Category

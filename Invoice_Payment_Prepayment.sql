@@ -34,6 +34,7 @@ pay.payment_id,
 pay.payment_profile_id,
 pay.payment_document_id,
 pay.check_number,
+pay.check_date,
 pay.payment_method_code,
 pay.status_lookup_code,
 pay.amount,
@@ -49,6 +50,7 @@ pay_prepay.payment_id as prepayment_id,
 pay_prepay.payment_profile_id as prepayment_profile_id,
 pay_prepay.payment_document_id as prepayment_document_id,
 pay_prepay.check_number as prepayment_check,
+pay_prepay.check_date as prepayment_check_date,
 pay_prepay.payment_method_code as prepayment_method,
 pay_prepay.status_lookup_code as prepayment_status ,
 pay_prepay.amount as prepayment_amount,
@@ -88,7 +90,7 @@ ON pay.check_id = payin.check_id and pay.STATUS_LOOKUP_CODE <> 'VOIDED'
 
 Where 
 -- api.Invoice_Date BETWEEN TO_DATE('01.05.2020','dd.MM.yyyy') AND TO_DATE('01.06.2020','dd.MM.yyyy') 
--- And xlen.Name Like 
+-- And xlen.Name Like 'Acun Medya Prodü%'
 api.Invoice_Date BETWEEN (:FromDate) AND (:ToDate) 
 And xlen.Name IN (:LegalEntity)
 And supp.VENDOR_NAME IN (:VendorName)
