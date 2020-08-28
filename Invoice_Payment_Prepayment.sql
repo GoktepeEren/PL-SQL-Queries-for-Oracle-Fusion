@@ -9,7 +9,7 @@ xlen.Name,
 api.Invoice_Num,
 po.SEGMENT1,
 supp.VENDOR_NAME,
-api.Description,
+Translate(api.Description, chr(10)||chr(11)||chr(13), '   ') as Description,
 api.Approval_Status,
 api.Invoice_Type_Lookup_Code,
 
@@ -62,36 +62,36 @@ prof_prepay.system_profile_code as prepayment_profile,
 pdoc_prepay.payment_document_name as prepayment_document
 
 
-From 
-AP_Invoice_Payments_All payin -- That table has Invoice and Payment Information
--- We use right join bc we need to see all invoice
-Right Join AP_INVOICES_ALL api 
-    Inner Join POZ_SUPPLIERS_V supp ON api.Vendor_Id = supp.Vendor_Id
-    Inner Join XLE_ENTITY_PROFILES xlen ON api.LEGAL_ENTITY_ID = xlen.LEGAL_ENTITY_ID
-    Left Join PO_HEADERS_ALL po ON api.PO_HEADER_ID = po.PO_HEADER_ID
-    -- We need to show all payments for all prepayment invoices  
-    Left Join AP_Invoice_Lines_All apil 
-        Inner Join AP_INVOICES_ALL api_prepay
-            Inner Join AP_Invoice_Payments_All payin_prepay
-                Left JOIN ap_checks_all pay_prepay
-                    Left JOIN iby_acct_pmt_profiles_b prof_prepay ON pay_prepay.payment_profile_id = prof_prepay.payment_profile_id
-                    Left JOIN ce_payment_documents pdoc_prepay ON pay_prepay.payment_document_id = pdoc_prepay.payment_document_id
-                ON pay_prepay.check_id = payin_prepay.check_id and pay_prepay.STATUS_LOOKUP_CODE <> 'VOIDED'
-            ON api_prepay.Invoice_Id = payin_prepay.Invoice_Id 
-        ON api_prepay.Invoice_Id = apil.PREPAY_INVOICE_ID and api_prepay.Approval_Status <> 'CANCELLED'
-    ON api.Invoice_Id = apil.Invoice_Id and apil.LINE_TYPE_LOOKUP_CODE = 'PREPAY'
+From AP_INVOICES_ALL api
+Left Join AP_Invoice_Payments_All payin -- That table has Invoice and Payment Information
+    -- We use left join bc we dont need to see all payments and 
+    -- we musnt inner bc that code filter just paid invoices with inner join but i want to see all invoices 
+    Inner JOIN ap_checks_all pay
+        LEFT JOIN iby_acct_pmt_profiles_b prof ON pay.payment_profile_id = prof.payment_profile_id
+        LEFT JOIN ce_payment_documents pdoc ON pay.payment_document_id = pdoc.payment_document_id
+    ON pay.check_id = payin.check_id and pay.STATUS_LOOKUP_CODE <> 'VOIDED'
 ON api.Invoice_Id = payin.Invoice_Id and api.Approval_Status <> 'CANCELLED'
--- We use left join bc we dont need to see all payments and 
--- we musnt inner bc that code filter just paid invoices with inner join but i want to see all invoices 
-Left JOIN ap_checks_all pay
-    LEFT JOIN iby_acct_pmt_profiles_b prof ON pay.payment_profile_id = prof.payment_profile_id
-    LEFT JOIN ce_payment_documents pdoc ON pay.payment_document_id = pdoc.payment_document_id
-ON pay.check_id = payin.check_id and pay.STATUS_LOOKUP_CODE <> 'VOIDED'
+
+Inner Join POZ_SUPPLIERS_V supp ON api.Vendor_Id = supp.Vendor_Id
+Inner Join XLE_ENTITY_PROFILES xlen ON api.LEGAL_ENTITY_ID = xlen.LEGAL_ENTITY_ID
+Left Join PO_HEADERS_ALL po ON api.PO_HEADER_ID = po.PO_HEADER_ID
+-- We need to show all payments for all prepayment invoices  
+Left Join AP_Invoice_Lines_All apil 
+    Inner Join AP_INVOICES_ALL api_prepay
+        Inner Join AP_Invoice_Payments_All payin_prepay
+            Inner JOIN ap_checks_all pay_prepay
+                Left JOIN iby_acct_pmt_profiles_b prof_prepay ON pay_prepay.payment_profile_id = prof_prepay.payment_profile_id
+                Left JOIN ce_payment_documents pdoc_prepay ON pay_prepay.payment_document_id = pdoc_prepay.payment_document_id
+            ON pay_prepay.check_id = payin_prepay.check_id and pay_prepay.STATUS_LOOKUP_CODE <> 'VOIDED'
+        ON api_prepay.Invoice_Id = payin_prepay.Invoice_Id 
+    ON api_prepay.Invoice_Id = apil.PREPAY_INVOICE_ID and api_prepay.Approval_Status <> 'CANCELLED'
+ON api.Invoice_Id = apil.Invoice_Id and apil.LINE_TYPE_LOOKUP_CODE = 'PREPAY'
+
 
 Where 
 -- api.Invoice_Date BETWEEN TO_DATE('01.05.2020','dd.MM.yyyy') AND TO_DATE('01.06.2020','dd.MM.yyyy') 
 -- And xlen.Name Like 'Acun Medya Prodü%'
-api.Invoice_Date BETWEEN (:FromDate) AND (:ToDate) 
+api.Invoice_Date BETWEEN (:FromDate) AND (:ToDate)
 And xlen.Name IN (:LegalEntity)
 And supp.VENDOR_NAME IN (:VendorName)
 
