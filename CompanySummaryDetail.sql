@@ -216,6 +216,7 @@ Inner Join PO_DISTRIBUTIONS_ALL pod
 ON pol.PO_LINE_ID = pod.PO_LINE_ID
 Left Join PJF_PROJECTS_ALL_VL  proc ON proc.Project_Id = pod.PJC_PROJECT_ID
 -- For Item Number 
+-- Item Number çokluyor. Distinct ile problem aşıldı
 Left Join EGP_SYSTEM_ITEMS_B tbl_item ON pol.Item_Id = tbl_item.Inventory_Item_Id 
 -- Purchasing Category
 Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.LANGUAGE= 'US'
@@ -243,6 +244,7 @@ ON pol.ITEM_ID = icatitemcat.Inventory_Item_Id and icatitemcat.CATEGORY_SET_ID  
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
 and TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') = (:Period)
 and org.Name IN (:Company)
+and geo.GEOGRAPHY_NAME IN (:Country)
 and 
 
     (Trim(Initcap(cate.Category_Name)) Like '%' || (:PurchasingCategory) || '%')
