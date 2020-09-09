@@ -10,6 +10,8 @@ org.Name as Company,
 
 poh.Document_Status as DocumentStatus, 
 
+cate.Category_Name,
+
 Case 
 When proc.SEGMENT1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
 When proc.SEGMENT1 = 'La Romana Common-Old' Then 'La Romana Common Expenses'
@@ -23,12 +25,24 @@ as ProjectName,
 
 poh.CURRENCY_CODE,
 
-Sum(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)) as AmountOrderCurrency,
+Case
+When org.Name not like 'DO%' Then Sum(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2))
+Else Sum(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2))
+End  as AmountOrderCurrency,
 
-Sum(Case 
-WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
-Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
-End) AmountUSD
+Case 
+When org.Name not like 'DO%'
+Then
+    Sum(Case 
+    WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)
+    Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+    End)
+Else 
+    Sum(Case 
+    WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
+    Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+    End) 
+End AmountUSD
 
 
 -- Can use for ungrouping query 
@@ -69,6 +83,7 @@ Inner Join PO_DISTRIBUTIONS_ALL pod
     AND pod.ATTRIBUTE11 = SubPValue.INDEPENDENT_VALUE
     and SubPValue.ATTRIBUTE_CATEGORY = 'ACM_SubProject_VS'
 ON pol.PO_LINE_ID = pod.PO_LINE_ID
+Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.LANGUAGE= 'US'
 Left Join PJF_PROJECTS_ALL_VL  proc ON proc.Project_Id = pod.PJC_PROJECT_ID
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
 and org.Name IN (:CompanyName)
@@ -90,6 +105,7 @@ EXTRACT(YEAR FROM poh.CREATION_DATE),
 EXTRACT(MONTH FROM poh.CREATION_DATE), 
 TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') , 
 org.Name, 
+cate.Category_Name,
 (Case 
 When proc.SEGMENT1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
 When proc.SEGMENT1 = 'La Romana Common-Old' Then 'La Romana Common Expenses'

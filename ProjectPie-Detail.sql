@@ -6,6 +6,8 @@ SELECT
 
 TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') as CreationMonth,
 
+org.Name as Company,
+
 Case 
 When proc.SEGMENT1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
 When proc.SEGMENT1 = 'La Romana Common-Old' Then 'La Romana Common Expenses'
@@ -17,11 +19,8 @@ Else 'UnselectedProject'
 End
 as ProjectName,
 
-org.Name as Company,
-
 poh.Segment1 as OrderNumber,
 poh.DOCUMENT_STATUS as OrderDocumentStatus,
-poh.COMMENTS as OrderDesc,
 sup.VENDOR_NAME as SuppName,
 term.Name as Term_Name,
 
@@ -34,27 +33,64 @@ cate.Category_Name,
 glcode.Segment2 as Account,
 valAccoutN.Description as AccountDescription,
 
+glcode.Segment2 || ' ' || valAccoutN.Description  AccountDescTotal, 
+
 pol.UOM_CODE as LineUnitCode,
 pol.Quantity as LineQuantity,
 pol.Unit_PRICE as LineUnitPrice,
 
 
 
--- Sum
-(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)) as AmountOrderCurrency,
 
 -- Sum
-(
-    Case 
-WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
-Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
-End) AmountUSD,
+Case
+When org.Name not like 'DO%' Then (Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2))
+Else (Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2))
+End as AmountOrderCurrency,
+
+Case 
+When poh.rate is null Then 1
+Else poh.rate 
+End as rate,
 
 poh.CURRENCY_CODE,
 
+((Case
+When org.Name not like 'DO%' Then (Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2))
+Else (Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2))
+End) *
+(Case 
+When poh.rate is null Then 1
+Else poh.rate 
+End)) as AmountLedger,
+
+(SELECT
+pohx.CURRENCY_CODE
+From PO_HEADERS_ALL pohx
+Where poh.BILLTO_BU_ID = pohx.BILLTO_BU_ID 
+and  pohx.rate is null 
+and rownum <= 1) as CurrencyLedger,
+
+
+-- Sum
+Case 
+When org.Name not like 'DO%' Then 
+    (Case 
+    WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)
+    Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+    End)
+Else
+    (Case 
+    WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
+    Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+    End)
+End  AmountUSD,
+
+
+
 
 perf.Display_Name as Buyer,
-
+pod.PJC_EXPENDITURE_ITEM_DATE as ExpenditureItemDate,
 poh.CREATION_DATE as OrderCreationDate,
 poh.SUBMIT_DATE as OrderSubmitDate,
 poh.APPROVED_DATE as OrderApprovedDate
@@ -91,8 +127,8 @@ Inner Join PO_HEADERS_ALL poh
 	And dorderrate.Conversion_Type = 'Corporate' 
 	and dorderrate.CONVERSION_DATE = To_Date(To_Char(poh.CREATION_DATE, 'dd.MM.yyyy'),'dd.MM.yyyy')
     Inner Join PER_PERSON_NAMES_F perf 
-    ON poh.Agent_Id = perf.PERSON_ID and perf.Name_Type = 'GLOBAL' and Trunc(Sysdate) between perf.EFFECTIVE_START_DATE and perf.EFFECTIVE_End_DATE
-ON pol.PO_HEADER_ID = poh.PO_HEADER_ID 
+    ON poh.Agent_Id = perf.PERSON_ID and perf.Name_Type = 'GLOBAL'
+ON pol.PO_HEADER_ID = poh.PO_HEADER_ID and poh.CREATION_DATE between (:PeriodStartDate) and  (:PeriodEndDate)
 -- and poh.CREATION_DATE between (:PeriodStartDate) and  (:PeriodEndDate)
 Inner Join PO_DISTRIBUTIONS_ALL pod 
     Left Join FND_VS_VALUES_B SubPValue
@@ -115,6 +151,8 @@ Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.
 
 
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
+and org.Name IN (:CompanyName)
+and 'Detail' = (:GraphOrDetail)
 and 
 (Case 
 When proc.SEGMENT1 = 'DoNotUse-La Romana Common' Then 'La Romana Common Expenses'
@@ -125,10 +163,6 @@ When pod.ATTRIBUTE12 = 'INVT.LRMN.001' Then 'La Romana Common Expenses'
 When pod.ATTRIBUTE12 is not null Then SubPDesc.Description
 Else 'UnselectedProject'
 End) In (:ProjectX)
-and TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') IN (:Period)
-and org.Name IN (:CompanyName)
-and 'Detail' = (:GraphOrDetail)
-
 -- and EXTRACT(YEAR FROM poh.CREATION_DATE) = 2020 
 -- and EXTRACT(MONTH FROM poh.CREATION_DATE) IN (3,4)
 -- and org.Name IN (:CompanyName)
