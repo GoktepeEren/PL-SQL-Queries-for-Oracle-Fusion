@@ -265,7 +265,7 @@ CASE
 			Distinct
 			orge.Name
 			From HR_ORGANIZATION_UNITS_F_TL orge
-			Where orge.Language = 'US' 
+			Where orge.Language = 'US' and (Trunc(SysDate) between orge.EFFECTIVE_START_DATE and orge.EFFECTIVE_END_DATE)
 			and orge.ORGANIZATION_ID = inline.PJC_ORGANIZATION_ID)
 	ELSE
 		(Select
@@ -273,7 +273,7 @@ CASE
 			orgE.Name
 			From
 			HR_ORGANIZATION_UNITS_F_TL orge
-			Where orge.Language = 'US'
+			Where orge.Language = 'US' and (Trunc(SysDate) between orge.EFFECTIVE_START_DATE and orge.EFFECTIVE_END_DATE)
 			and orge.ORGANIZATION_ID = indist.PJC_ORGANIZATION_ID)
 	END as Expenditure_Organization,
 
@@ -1013,7 +1013,7 @@ as Project_Name,
 Distinct
 orge.Name
 From HR_ORGANIZATION_UNITS_F_TL orge
-Where orge.Language = fnd_Global.Current_Language
+Where orge.Language = fnd_Global.Current_Language and (Trunc(SysDate) between orge.EFFECTIVE_START_DATE and orge.EFFECTIVE_END_DATE)
 and orge.ORGANIZATION_ID = orDistex.PJC_ORGANIZATION_ID)
 as Expenditure_Organization,		
 	
