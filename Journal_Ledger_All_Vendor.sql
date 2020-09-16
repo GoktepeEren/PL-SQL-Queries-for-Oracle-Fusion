@@ -12,6 +12,7 @@ glb.STATUS "Batch Status",
 glh.Posted_Date "Posted Date",
 glh.NAME "Journal Name",
 glh.DESCRIPTION "Journal Description",
+import.Reference_6,
 ap_dist.accounting_event_id invsupp, 
 ap_pay.accounting_event_id paysupp,
 Case 
@@ -54,7 +55,7 @@ Inner Join GL_JE_HEADERS glh
 					and valAccoutNordist.LANGUAGE = FND_GLOBAL.Current_Language
 			ON valAccoutordist.Value = gcc.Segment2 and valAccoutordist.ATTRIBUTE_CATEGORY = 'ACM_Account'
         ON gll.CODE_COMBINATION_ID = gcc.CODE_COMBINATION_ID
-        Inner Join GL_Import_References import
+        Left Join GL_Import_References import
             Left Join  
                 (
                     Select Distinct dist2.Accounting_Event_Id, inhead.Invoice_Id, sup.VENDOR_NAME, supsite.PARTY_SITE_NAME
@@ -89,7 +90,6 @@ gled.Name IN (:LEDGER)
 AND gll.PERIOD_NAME IN (:PERIOD)
 -- AND gll.PERIOD_NAME = '2019-01'
 -- AND glb.STATUS IN (:STATUS)
-AND gll.STATUS = 'P'
 AND gcc.Segment2 IN (:ACCOUNT)
 -- AND glh.JE_SOURCE IN (:SOURCE)
 -- AND glh.JE_CATEGORY IN (:CATEGORY)
