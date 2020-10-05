@@ -1,5 +1,7 @@
 SELECT
 
+Distinct
+
 EXTRACT(YEAR FROM poh.CREATION_DATE) as CreationYear,
 
 EXTRACT(MONTH FROM poh.CREATION_DATE) as CreationMonthText,
@@ -109,27 +111,59 @@ pol.Unit_PRICE as LineUnitPrice,
 (
     Case 
 WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
-Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / 
+    Case
+        When dorderrate.Conversion_Rate is not null then TRUNC(dorderrate.Conversion_Rate,2)
+        Else (Select * From
+                (Select dorderratex.Conversion_Rate From gl_daily_rates dorderratex 
+                Where dorderratex.From_Currency = 'USD' and dorderratex.TO_Currency = poh.CURRENCY_CODE
+	            And dorderratex.Conversion_Type = 'Corporate' and Trunc(dorderratex.CONVERSION_DATE) < Trunc(poh.Creation_date)
+                Order By dorderratex.Conversion_Rate) Where Rownum <= 1)
+    End, 2)
 End) AmountUSD,
 
 -- Sum
 (
     Case 
 WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)
-Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
+Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) / 
+    Case
+        When dorderrate.Conversion_Rate is not null then TRUNC(dorderrate.Conversion_Rate,2)
+        Else (Select * From
+                (Select dorderratex.Conversion_Rate From gl_daily_rates dorderratex 
+                Where dorderratex.From_Currency = 'USD' and dorderratex.TO_Currency = poh.CURRENCY_CODE
+	            And dorderratex.Conversion_Type = 'Corporate' and Trunc(dorderratex.CONVERSION_DATE) < Trunc(poh.Creation_date)
+                Order By dorderratex.Conversion_Rate) Where Rownum <= 1)
+    End, 2)
 End) AmountWitoutUSD,
 
 (Case
 When org.Name like 'DO%' Then
-(Case 
-WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
-Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
-End)
+    (Case 
+    WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
+    Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / 
+        Case
+            When dorderrate.Conversion_Rate is not null then TRUNC(dorderrate.Conversion_Rate,2)
+            Else (Select * From
+                    (Select dorderratex.Conversion_Rate From gl_daily_rates dorderratex 
+                    Where dorderratex.From_Currency = 'USD' and dorderratex.TO_Currency = poh.CURRENCY_CODE
+                    And dorderratex.Conversion_Type = 'Corporate' and Trunc(dorderratex.CONVERSION_DATE) < Trunc(poh.Creation_date)
+                    Order By dorderratex.Conversion_Rate) Where Rownum <= 1)
+        End, 2)
+    End)
 Else
-(Case 
-WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)
-Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
-End)
+    (Case 
+    WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)
+    Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) / 
+        Case
+            When dorderrate.Conversion_Rate is not null then TRUNC(dorderrate.Conversion_Rate,2)
+            Else (Select * From
+                    (Select dorderratex.Conversion_Rate From gl_daily_rates dorderratex 
+                    Where dorderratex.From_Currency = 'USD' and dorderratex.TO_Currency = poh.CURRENCY_CODE
+                    And dorderratex.Conversion_Type = 'Corporate' and Trunc(dorderratex.CONVERSION_DATE) < Trunc(poh.Creation_date)
+                    Order By dorderratex.Conversion_Rate) Where Rownum <= 1)
+        End, 2)
+    End)
 End) AmountUSDforPivot,
 
 poh.CURRENCY_CODE,
@@ -216,7 +250,6 @@ Inner Join PO_DISTRIBUTIONS_ALL pod
 ON pol.PO_LINE_ID = pod.PO_LINE_ID
 Left Join PJF_PROJECTS_ALL_VL  proc ON proc.Project_Id = pod.PJC_PROJECT_ID
 -- For Item Number 
--- Item Number çokluyor. Distinct ile problem aşıldı
 Left Join EGP_SYSTEM_ITEMS_B tbl_item ON pol.Item_Id = tbl_item.Inventory_Item_Id 
 -- Purchasing Category
 Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.LANGUAGE= 'US'
@@ -242,7 +275,7 @@ ON pol.ITEM_ID = icatitemcat.Inventory_Item_Id and icatitemcat.CATEGORY_SET_ID  
 
 
 Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
-and TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') = (:Period)
+and TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') IN (:Period)
 and org.Name IN (:Company)
 and geo.GEOGRAPHY_NAME IN (:Country)
 and 

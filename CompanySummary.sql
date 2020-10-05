@@ -9,6 +9,7 @@ TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') as CreationMonth,
 geo.GEOGRAPHY_ID,
 org.LEGAL_ENTITY_ID ,
 
+'World' as World,
 geo.GEOGRAPHY_NAME  as Country,
 org.Name as Company,
 
@@ -112,15 +113,31 @@ End) AmountUSD,
 
 (Case
 When geo.GEOGRAPHY_NAME like 'Dominican%' Then
-(Case 
-WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
-Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
-End)
+    (Case 
+    WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2)
+    Else Trunc(Trunc((pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT),2) / 
+        Case
+        When dorderrate.Conversion_Rate is not null then TRUNC(dorderrate.Conversion_Rate,2)
+        Else (Select * From
+                (Select dorderratex.Conversion_Rate From gl_daily_rates dorderratex 
+                Where dorderratex.From_Currency = 'USD' and dorderratex.TO_Currency = poh.CURRENCY_CODE
+	            And dorderratex.Conversion_Type = 'Corporate' and Trunc(dorderratex.CONVERSION_DATE) < Trunc(poh.Creation_date)
+                Order By dorderratex.Conversion_Rate) Where Rownum <= 1)
+        End, 2)
+    End)
 Else
-(Case 
-WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)
-Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) / TRUNC(dorderrate.Conversion_Rate,2), 2)
-End)
+    (Case 
+    WHEN poh.CURRENCY_CODE = 'USD' Then Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2)
+    Else Trunc(Trunc((pod.TAX_EXCLUSIVE_AMOUNT),2) /
+        Case
+        When dorderrate.Conversion_Rate is not null then TRUNC(dorderrate.Conversion_Rate,2)
+        Else (Select * From
+                (Select dorderratex.Conversion_Rate From gl_daily_rates dorderratex 
+                Where dorderratex.From_Currency = 'USD' and dorderratex.TO_Currency = poh.CURRENCY_CODE
+	            And dorderratex.Conversion_Type = 'Corporate' and Trunc(dorderratex.CONVERSION_DATE) < Trunc(poh.Creation_date)
+                Order By dorderratex.Conversion_Rate) Where Rownum <= 1)
+        End, 2)
+    End)
 End) AmountUSDforPivot,
 
 poh.CURRENCY_CODE,
