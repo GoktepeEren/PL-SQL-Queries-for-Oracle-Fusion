@@ -1,7 +1,6 @@
 Select
-gllb.LedgerName as LedgerName,
 
--- valAccoutordistb.Value as Account,
+gllb.LedgerName as LedgerName,
 
 valAccoutordistb.Value as Account,
 
@@ -38,14 +37,19 @@ From FND_VS_VALUES_B valAccoutordistb
             ON glxb.Ledger_Id = gledxb.Ledger_Id
             Where glxb.EFFECTIVE_DATE between :StartDate and :EndDate
             and gledxb.Name = :LedgerNameX) gllb
-            -- Inner Join GL_JE_HEADERS glh
-            --     Inner Join GL_JE_BATCHES glb
-            --     ON glb.JE_BATCH_ID = glh.JE_BATCH_ID
-            -- On glh.JE_HEADER_ID = gll.JE_HEADER_ID
     ON valAccoutordistb.Value = SUBSTR(gllb.Value, 1, Length(valAccoutordistb.Value)) 
 
 Where valAccoutordistb.ATTRIBUTE_CATEGORY = 'ACM_Account' 
+-- Getting All Account
 and (valAccoutordistb.Value IN (:Account) OR 'All' IN (:Account || 'All'))
+
+-- Getting accounts at a Certain Interval  
+and (Cast(regexp_replace(SUBSTR(valAccoutordistb.Value,'1','1'), '[^0-9]+', '') as number) between NVL(To_Number(SUBSTR(To_Char(:StartValue),'1','1')),0) and NVL(To_Number(SUBSTR(To_Char(:EndValue),'1','1')),999999999999))
+and (Cast(regexp_replace(valAccoutordistb.Value, '[^0-9]+', '') as number) between NVL(To_Number(:StartValue),0) and NVL(To_Number(:EndValue),999999999999))
+
+-- Getting Level Account
+and LENGTH(To_Char((cast(regexp_replace(valAccoutordistb.Value, '[^0-9]+', '') as number)))) = (Case When NVL(To_Number(:LevelNumber),4) >= 5 Then 12 Else NVL(To_Number(:LevelNumber),4) * 3 End) 
+
 Group By gllb.LedgerName, valAccoutordistb.Value, valAccoutNordistb.DESCRIPTION
 
 Order By valAccoutordistb.Value
