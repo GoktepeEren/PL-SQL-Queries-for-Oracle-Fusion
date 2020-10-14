@@ -20,9 +20,9 @@ Inner Join  GL_CODE_COMBINATIONS gcxb
 ON glxb.CODE_COMBINATION_ID = gcxb.CODE_COMBINATION_ID
 Inner Join GL_LEDGERS gledxb
 ON glxb.Ledger_Id = gledxb.Ledger_Id
-Inner Join GL_IMPORT_REFERENCES glim
-    Inner Join XLA_AE_LINES xlin
-        Inner Join POZ_SUPPLIERs_V poz
+Left Join GL_IMPORT_REFERENCES glim
+    Left Join XLA_AE_LINES xlin
+        Left Join POZ_SUPPLIERs_V poz
         ON poz.Vendor_ID = xlin.Party_ID
     ON xlin.gl_sl_link_table = glim.gl_sl_link_table and  xlin.gl_sl_link_id = glim.gl_sl_link_id 
 ON glxb.je_header_id = glim.je_header_id and glxb.je_line_num = glim.je_line_num
