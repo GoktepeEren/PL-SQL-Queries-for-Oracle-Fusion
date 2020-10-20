@@ -6,12 +6,10 @@ valAccoutordistb.Value as Account,
 
 valAccoutNordistb.DESCRIPTION as AccountDesc,
 
-Sum(NVL(gllb.ENTERED_DR,0)) as EnteredDebit,
-Sum(NVL(gllb.ENTERED_CR,0)) as EnteredCredit,
-Sum(NVL(gllb.ENTERED_DR,0)) - Sum(NVL(gllb.ENTERED_CR,0)) as EnteredBalance,
+-- Sum(NVL(gllb.ACCOUNTED_DR,0)) as AccountedDebit,
+-- Sum(NVL(gllb.ACCOUNTED_CR,0)) as AccountedCrebit,
+TO_CHAR(gllb.EFFECTIVE_DATE, 'YYYY, MONTH') as Month,
 
-Sum(NVL(gllb.ACCOUNTED_DR,0)) as AccountedDebit,
-Sum(NVL(gllb.ACCOUNTED_CR,0)) as AccountedCrebit,
 Sum(NVL(gllb.ACCOUNTED_DR,0)) - Sum(NVL(gllb.ACCOUNTED_CR,0)) as AccountedBalance
 
 From FND_VS_VALUES_B valAccoutordistb
@@ -26,6 +24,7 @@ From FND_VS_VALUES_B valAccoutordistb
             glxb.ENTERED_CR,
             glxb.ACCOUNTED_DR,
             glxb.ACCOUNTED_CR,
+            glxb.EFFECTIVE_DATE,
             gledxb.Name as LedgerName
             From 
             GL_JE_LINES glxb
@@ -48,13 +47,8 @@ and (Cast(regexp_replace(SUBSTR(valAccoutordistb.Value,'1','1'), '[^0-9]+', '') 
 and (Cast(regexp_replace(valAccoutordistb.Value, '[^0-9]+', '') as number) between NVL(To_Number(:StartValue),0) and NVL(To_Number(:EndValue),999999999999))
 
 -- Getting Level Account
-<<<<<<< HEAD
 and LENGTH(To_Char((cast(regexp_replace(valAccoutordistb.Value, '[^0-9]+', '') as number)))) 
 between (Case When NVL(To_Number(:LevelNumber),0) = 0 Then 0 Else (Case When NVL(To_Number(:LevelNumber),4) > 4 Then 12 Else NVL(To_Number(:LevelNumber),4) * 3 End ) End) and (Case When NVL(To_Number(:LevelNumber),0) = 0 Then 12 Else (Case When NVL(To_Number(:LevelNumber),4) > 4 Then 12 Else NVL(To_Number(:LevelNumber),4) * 3 End ) End) 
-=======
-and Case When (:LevelX) is not null Then LENGTH(To_Char((cast(regexp_replace(valAccoutordistb.Value, '[^0-9]+', '') as number)))) Else 1 End = Case When (:LevelX) is not null Then (Case When NVL(To_Number(:LevelX),4) >= 5 Then 12 Else NVL(To_Number(:LevelX),4) * 3 End) Else 1 End
-
->>>>>>> 91f2a362041f1d2d4f071ea5850fae04d549e3cb
-Group By gllb.LedgerName, valAccoutordistb.Value, valAccoutNordistb.DESCRIPTION
+Group By gllb.LedgerName, valAccoutordistb.Value, valAccoutNordistb.DESCRIPTION, TO_CHAR(gllb.EFFECTIVE_DATE, 'YYYY, MONTH')
 
 Order By valAccoutordistb.Value
