@@ -1,7 +1,7 @@
-
 Select
 item.Organization_Code,
 item.ITEM_NUMBER,
+item.INVENTORY_ITEM_STATUS_CODE,
 item.DESCRIPTION,
 item.LONG_DESCRIPTION,
 cati.Category_Name as PurchasingCategory,
@@ -16,6 +16,8 @@ ON item.Inventory_Item_Id = icat.Inventory_Item_Id and icat.CATEGORY_SET_ID  = '
 Left Join EGP_ITEM_CAT_ASSIGNMENTS icatitemcat
     Inner Join EGP_CATEGORIES_VL catitem ON icatitemcat.Category_Id = catitem.Category_Id and (catitem.END_DATE_ACTIVE is null OR catitem.END_DATE_ACTIVE > sysdate)   
 ON item.Inventory_Item_Id = icatitemcat.Inventory_Item_Id and icatitemcat.CATEGORY_SET_ID  = '300000013087480'
-Where item.INVENTORY_ITEM_STATUS_CODE <> 'Inactive' 
-and item.Organization_Code =  (:OrgName)
-Order By item.DESCRIPTION
+Where 
+-- item.INVENTORY_ITEM_STATUS_CODE <> 'Inactive' and 
+item.INVENTORY_ITEM_STATUS_CODE IN (:ItemStatus) and
+item.Organization_Code IN (:OrgName)
+Order By item.ITEM_NUMBER
