@@ -208,7 +208,7 @@ From
             And dorderrate.Conversion_Type = 'Corporate' 
             and dorderrate.CONVERSION_DATE = To_Date(To_Char(poh.CREATION_DATE, 'dd.MM.yyyy'),'dd.MM.yyyy')
             Inner Join PER_PERSON_NAMES_F perf 
-            ON poh.Agent_Id = perf.PERSON_ID and perf.Name_Type = 'GLOBAL'
+            ON poh.Agent_Id = perf.PERSON_ID and perf.Name_Type = 'GLOBAL' and sysdate between perf.Effective_Start_Date and perf.Effective_End_Date 
         ON pol.PO_HEADER_ID = poh.PO_HEADER_ID 
         Inner Join PO_DISTRIBUTIONS_ALL pod 
             -- Sub Project Left Join
