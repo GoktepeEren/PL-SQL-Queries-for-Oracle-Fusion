@@ -1,12 +1,106 @@
+With CategoryHier
+As (Select
+ItemAssign.INVENTORY_ITEM_ID as ItemId,
+Initcap(Trim(CategoryFirst.Category_Name)) as CategoryNameFirst,
+Initcap(Trim(NVL(CategorySecond.Category_Name ,CategoryFirst.Category_Name))) as CategoryNameSecond,
+Initcap(Trim(NVL(CategoryThird.Category_Name ,NVL(CategorySecond.Category_Name ,CategoryFirst.Category_Name)))) as CategoryNameThird
+From EGP_ITEM_CAT_ASSIGNMENTS ItemAssign
+Inner Join EGP_CATEGORIES_VL CategoryFirst 
+    Inner Join EGP_CATEGORY_SET_VALID_CATS CategoryHierUp
+        Left Join EGP_CATEGORIES_VL CategorySecond
+            Left Join EGP_CATEGORY_SET_VALID_CATS CategoryHierUp2
+                Left Join EGP_CATEGORIES_VL CategoryThird 
+                ON CategoryHierUp2.PARENT_CATEGORY_ID = CategoryThird.Category_Id 
+            ON CategoryHierUp2.Category_Id = CategorySecond.Category_Id
+        ON CategoryHierUp.Parent_Category_ID = CategorySecond.Category_Id
+    ON CategoryHierUp.Category_ID = CategoryFirst.Category_Id
+ON ItemAssign.CATEGORY_ID = CategoryFirst.Category_Id
+Where ItemAssign.CATEGORY_SET_ID  = '300000013087480' and Trim(CategoryFirst.Category_Name) not like '%_OLD%')
+,CategoryHierNonCat
+As (Select
+Initcap(Trim(CategoryThird.Category_Name)) as CategoryNameThird,
+NVL(Initcap(Trim(CategorySecond.Category_Name)),Initcap(Trim(CategoryThird.Category_Name))) as CategoryNameSecond,
+NVL(NVL(Initcap(Trim(CategoryFirst.Category_Name)),Initcap(Trim(CategorySecond.Category_Name))),Initcap(Trim(CategoryThird.Category_Name))) as CategoryNameFirst
+From EGP_CATEGORY_SET_VALID_CATS CategoryHierUp
+    Inner Join EGP_CATEGORIES_VL CategoryThird 
+        Left Join EGP_CATEGORY_SET_VALID_CATS CategoryHierUp2
+            Left Join EGP_CATEGORIES_VL CategorySecond
+                Left Join EGP_CATEGORY_SET_VALID_CATS CategoryHierUp3
+                    Left Join EGP_CATEGORIES_VL CategoryFirst 
+                    ON CategoryHierUp3.CATEGORY_ID = CategoryFirst.Category_Id 
+                ON CategoryHierUp3.Parent_Category_Id = CategorySecond.Category_Id
+            ON CategoryHierUp2.Category_ID = CategorySecond.Category_Id
+        ON CategoryHierUp2.Parent_Category_ID = CategoryThird.Category_Id
+    ON CategoryHierUp.CATEGORY_ID = CategoryThird.Category_Id
+Where CategoryHierUp.CATEGORY_SET_ID  = '300000013087480' and CategoryHierUp.Parent_Category_ID is null and CategoryThird.Category_Name not like '%_OLD%')
+
+
+Select
+
+
+PurchaseOrderDetail.CreationYear,
+PurchaseOrderDetail.CreationMonthText,
+PurchaseOrderDetail.CreationMonth,
+PurchaseOrderDetail.GEOGRAPHY_ID,
+PurchaseOrderDetail.LEGAL_ENTITY_ID,
+PurchaseOrderDetail.Country,
+PurchaseOrderDetail.Company,
+PurchaseOrderDetail.ProjectName,
+PurchaseOrderDetail.ProcessType,
+PurchaseOrderDetail.CostCategory,
+PurchaseOrderDetail.OrderNumber,
+PurchaseOrderDetail.OrderDocumentStatus,
+PurchaseOrderDetail.SuppName,
+PurchaseOrderDetail.Term_Name,
+PurchaseOrderDetail.LineNumber,
+PurchaseOrderDetail.LineType,
+PurchaseOrderDetail.ItemId,
+PurchaseOrderDetail.ItemNumber,
+PurchaseOrderDetail.LineDesc,
+PurchaseOrderDetail.Category_Name,
+PurchaseOrderDetail.ItemCategory_Name,
+PurchaseOrderDetail.ItemCategory_Name1,
+PurchaseOrderDetail.ItemCategory_Name2,
+PurchaseOrderDetail.Account,
+PurchaseOrderDetail.Account3,
+PurchaseOrderDetail.Account7,
+PurchaseOrderDetail.Account11,
+PurchaseOrderDetail.AccountDescription,
+PurchaseOrderDetail.AccountDescription3,
+PurchaseOrderDetail.AccountDescription7,
+PurchaseOrderDetail.AccountDescription11,
+PurchaseOrderDetail.AccountTotal,
+PurchaseOrderDetail.AccountTotal3,
+PurchaseOrderDetail.AccountTotal7,
+PurchaseOrderDetail.AccountTotal11,
+PurchaseOrderDetail.LineUnitCode,
+PurchaseOrderDetail.LineQuantity,
+PurchaseOrderDetail.LineUnitPrice,
+PurchaseOrderDetail.AmountOrderCurrency,
+PurchaseOrderDetail.AmountOrderCurrencyWoutTax,
+PurchaseOrderDetail.AmountUSD,
+PurchaseOrderDetail.AmountWitoutUSD,
+PurchaseOrderDetail.AmountUSDforPivot,
+PurchaseOrderDetail.CURRENCY_CODE,
+PurchaseOrderDetail.Buyer,
+PurchaseOrderDetail.ExpItemDate,
+PurchaseOrderDetail.OrderCreationDate,
+PurchaseOrderDetail.OrderSubmitDate,
+PurchaseOrderDetail.OrderApprovedDate
+
+From
+
+(
+
 SELECT
 
 Distinct
 
-EXTRACT(YEAR FROM poh.CREATION_DATE) as CreationYear,
+EXTRACT(YEAR FROM pod.PJC_EXPENDITURE_ITEM_DATE) as CreationYear,
 
-EXTRACT(MONTH FROM poh.CREATION_DATE) as CreationMonthText,
+EXTRACT(MONTH FROM pod.PJC_EXPENDITURE_ITEM_DATE) as CreationMonthText,
 
-TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') as CreationMonth,
+TO_CHAR(pod.PJC_EXPENDITURE_ITEM_DATE, 'YYYY, MONTH') as CreationMonth,
 
 geo.GEOGRAPHY_ID,
 org.LEGAL_ENTITY_ID ,
@@ -25,6 +119,10 @@ Else 'UnselectedProject'
 End
 as ProjectName,
 
+OpDesc.Description as ProcessType,
+
+CostCatDesc.Description as CostCategory,
+
 poh.Segment1 as OrderNumber,
 Initcap(poh.DOCUMENT_STATUS) as OrderDocumentStatus,
 sup.VENDOR_NAME as SuppName,
@@ -39,27 +137,23 @@ Initcap(cate.Category_Name) as Category_Name ,
 
 (Case 
 When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
-When catitem.Category_Name is null Then 'Undefined Item Category' 
-Else Initcap(catitem.Category_Name)
+When CategoryHierarcy.CategoryNameFirst is null Then 'Undefined Item Category'
+Else CategoryHierarcy.CategoryNameFirst 
 End 
 ) as ItemCategory_Name,
 
-
 (Case 
 When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
-When catitem.Category_Name is null Then 'Undefined Item Category' 
-When cateman.Category_Name is null Then 'Undefined Item Category'
-Else Initcap(cateman.Category_Name)
+When CategoryHierarcy.CategoryNameFirst is null Then 'Undefined Item Category'
+Else CategoryHierarcy.CategoryNameSecond
 End 
 ) as ItemCategory_Name1,
 
 
 (Case 
 When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
-When catitem.Category_Name is null Then 'Undefined Item Category' 
-When cateman.Category_Name is null Then 'Undefined Item Category'
-When cateman2.Category_Name is null Then Initcap(cateman.Category_Name) 
-Else Initcap(cateman2.Category_Name)
+When CategoryHierarcy.CategoryNameFirst is null Then 'Undefined Item Category'
+Else CategoryHierarcy.CategoryNameThird
 End 
 ) as ItemCategory_Name2,
 
@@ -91,10 +185,10 @@ valAccoutN3.Description as AccountDescription3,
 valAccoutN7.Description as AccountDescription7,
 valAccoutN11.Description as AccountDescription11,
 
-glcode.Segment2 || ' - ' || valAccoutN.Description as AccountTotal,
-SUBSTR(glcode.Segment2, 1, 3)   || ' - ' || valAccoutN3.Description as AccountTotal3,
-SUBSTR(glcode.Segment2, 1, 7)   || ' - ' || valAccoutN7.Description as AccountTotal7,
-SUBSTR(glcode.Segment2, 1, 11)  || ' - ' || valAccoutN11.Description as AccountTotal11,
+valAccoutN.Description   || ' - ' || glcode.Segment2                  as AccountTotal,
+valAccoutN3.Description  || ' - ' || SUBSTR(glcode.Segment2, 1, 3)    as AccountTotal3,
+valAccoutN7.Description  || ' - ' || SUBSTR(glcode.Segment2, 1, 7)    as AccountTotal7,
+valAccoutN11.Description || ' - ' || SUBSTR(glcode.Segment2, 1, 11)   as AccountTotal11,
 
 pol.UOM_CODE as LineUnitCode,
 pol.Quantity as LineQuantity,
@@ -169,11 +263,12 @@ End) AmountUSDforPivot,
 poh.CURRENCY_CODE,
 
 
-perf.Display_Name as Buyer,
+perf.Display_Name as                Buyer,
 
-poh.CREATION_DATE as OrderCreationDate,
-poh.SUBMIT_DATE as OrderSubmitDate,
-poh.APPROVED_DATE as OrderApprovedDate
+pod.PJC_EXPENDITURE_ITEM_DATE as    ExpItemDate,
+poh.CREATION_DATE as                OrderCreationDate,
+poh.SUBMIT_DATE as                  OrderSubmitDate,
+poh.APPROVED_DATE as                OrderApprovedDate
 
 -- Can use for ungrouping query 
 
@@ -201,6 +296,8 @@ Inner Join PO_HEADERS_ALL poh
         ON org.GEOGRAPHY_ID = geo.GEOGRAPHY_ID 
     On poh.SOLDTO_LE_ID = org.LEGAL_ENTITY_ID 
 -- and org.Language = 'US'
+    Inner Join HR_ORGANIZATION_UNITS_F_TL  orgbu 
+    On poh.BILLTO_BU_ID = orgbu.ORGANIZATION_ID and orgbu.Language = 'US'
     Inner Join POZ_SUPPLIERS_V sup 
 	On sup.VENDOR_ID = poh.VENDOR_ID
     Inner Join AP_TERMS_TL term 
@@ -211,7 +308,8 @@ Inner Join PO_HEADERS_ALL poh
 	and dorderrate.CONVERSION_DATE = To_Date(To_Char(poh.CREATION_DATE, 'dd.MM.yyyy'),'dd.MM.yyyy')
     Inner Join PER_PERSON_NAMES_F perf 
     ON poh.Agent_Id = perf.PERSON_ID and perf.Name_Type = 'GLOBAL' and Trunc(Sysdate) between perf.EFFECTIVE_START_DATE and perf.EFFECTIVE_End_DATE
-ON pol.PO_HEADER_ID = poh.PO_HEADER_ID and poh.CREATION_DATE >= to_date('01.06.2020', 'dd.MM.yyyy')
+ON pol.PO_HEADER_ID = poh.PO_HEADER_ID 
+-- and poh.CREATION_DATE >= to_date('01.06.2020', 'dd.MM.yyyy')
 -- and poh.CREATION_DATE between (:PeriodStartDate) and  (:PeriodEndDate)
 Inner Join PO_DISTRIBUTIONS_ALL pod 
     Left Join FND_VS_VALUES_B SubPValue
@@ -221,6 +319,18 @@ Inner Join PO_DISTRIBUTIONS_ALL pod
         ON pod.ATTRIBUTE12 = SubPValue.Value
         AND pod.ATTRIBUTE11 = SubPValue.INDEPENDENT_VALUE
     and SubPValue.ATTRIBUTE_CATEGORY = 'ACM_SubProject_VS'
+    Left Join FND_VS_VALUES_B Operational
+        Inner Join FND_VS_VALUES_TL OpDesc
+        ON Operational.VALUE_ID = OpDesc.VALUE_ID
+        and OpDesc.LANGUAGE = fnd_Global.Current_Language
+    ON pod.ATTRIBUTE13 = Operational.Value
+    and Operational.ATTRIBUTE_CATEGORY = 'ACM_ProcessType_VS'
+    Left Join FND_VS_VALUES_B CostCatValue
+        Inner Join FND_VS_VALUES_TL CostCatDesc
+        ON CostCatValue.VALUE_ID = CostCatDesc.VALUE_ID
+        and CostCatDesc.LANGUAGE = fnd_Global.Current_Language
+    ON  pod.ATTRIBUTE1 = CostCatValue.Value
+    and CostCatValue.ATTRIBUTE_CATEGORY = 'ACM_Business_Function_VS'
     Inner Join GL_CODE_COMBINATIONS glcode 
 			Inner Join FND_VS_VALUES_B valAccout
                 Inner Join FND_VS_VALUES_TL valAccoutN 
@@ -247,47 +357,49 @@ Inner Join PO_DISTRIBUTIONS_ALL pod
         ON valAccout11.Value = SUBSTR(glcode.Segment2, 1, 11) and valAccout11.ATTRIBUTE_CATEGORY = 'ACM_Account'
 
     ON pod.CODE_COMBINATION_ID  = glcode.CODE_COMBINATION_ID
-ON pol.PO_LINE_ID = pod.PO_LINE_ID
+ON pol.PO_LINE_ID = pod.PO_LINE_ID 
+-- and pod.PJC_EXPENDITURE_ITEM_DATE >= to_date('01.06.2020', 'dd.MM.yyyy')
 Left Join PJF_PROJECTS_ALL_VL  proc ON proc.Project_Id = pod.PJC_PROJECT_ID
 -- For Item Number 
 Left Join EGP_SYSTEM_ITEMS_B tbl_item ON pol.Item_Id = tbl_item.Inventory_Item_Id 
 -- Purchasing Category
 Left join EGP_Categories_TL cate ON cate.Category_Id = pol.Category_Id and cate.LANGUAGE= 'US'
 -- Item Category
-Left Join EGP_ITEM_CAT_ASSIGNMENTS icatitemcat
-    Inner Join EGP_CATEGORIES_VL catitem 
-        Left Join EGP_CATEGORY_SET_VALID_CATS valid
-            Left Join EGP_Categories_TL cateman 
-                Left Join EGP_CATEGORY_SET_VALID_CATS valid2
-                    Left Join EGP_Categories_TL cateman2 
-                        -- Optioanlly can added
-                        -- Left Join EGP_CATEGORY_SET_VALID_CATS valid3
-                        --     Left Join EGP_Categories_TL cateman3 
-                        --     ON valid3.PARENT_CATEGORY_ID = cateman3.Category_Id and cateman3.LANGUAGE= 'US'
-                        -- ON valid3.Category_Id = cateman2.Category_Id
-                    ON valid2.PARENT_CATEGORY_ID = cateman2.Category_Id and cateman2.LANGUAGE= 'US'
-                ON valid2.Category_Id = cateman.Category_Id
-            ON valid.PARENT_CATEGORY_ID = cateman.Category_Id and cateman.LANGUAGE= 'US'
-        ON valid.Category_ID = catitem.Category_Id
-    ON icatitemcat.Category_Id = catitem.Category_Id and (catitem.END_DATE_ACTIVE is null OR catitem.END_DATE_ACTIVE > sysdate)   
-ON pol.ITEM_ID = icatitemcat.Inventory_Item_Id and icatitemcat.CATEGORY_SET_ID  = '300000013087480'
+-- Item Category
+Left Join CategoryHier CategoryHierarcy ON CategoryHierarcy.ItemId = pol.ITEM_ID 
 
+Left Join CategoryHierNonCat CategoryHierarcyNonCat ON CategoryHierarcyNonCat.CategoryNameFirst = Trim(Initcap(cate.Category_Name))
 
+Where 
 
-Where pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
-and TO_CHAR(poh.CREATION_DATE, 'YYYY, MONTH') IN (:Period)
-and org.Name IN (:Company)
-and geo.GEOGRAPHY_NAME IN (:Country)
-and 
+pol.Line_Status in ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
+and glcode.Segment2 not like '198%'
 
-    (Trim(Initcap(cate.Category_Name)) Like '%' || (:PurchasingCategory) || '%')
-    And 
-    ((Case 
-    When pol.ITEM_ID is null Then 'Undefinable Item Category (Non-Catalog)'
-    When catitem.Category_Name is null Then 'Undefined Item Category' 
-    Else Initcap(catitem.Category_Name)
-    End) Like '%' || (:ItemCategory) || '%')
-    And 
-    ((glcode.Segment2 || ' - ' || valAccoutN.Description) Like '%' || (:Account) || '%')
+-- Purchase Analysis Role
+and (orgbu.Name IN 
 
-Order By poh.Creation_date DESC, pol.LINE_NUM
+(Select
+horg.Name BusinessUnit
+From
+PER_USERS users
+Inner Join PER_USER_ROLES roles
+    Inner Join PER_ROLES_DN_VL rolesdetail
+        Inner Join FUN_USER_ROLE_DATA_ASGNMNTS accdata
+            Inner Join hr_organization_units horg
+            ON horg.Organization_Id = accdata.Org_Id
+        On rolesdetail.Role_Common_Name = accdata.ROLE_NAME and accdata.ACTIVE_FLAG = 'Y' 
+    ON rolesdetail.Role_ID = roles.Role_Id 
+ON users.USER_ID = roles.User_ID
+Where accdata.USER_GUID = users.USER_GUID
+and rolesdetail.ROLE_COMMON_NAME = 'ORA_PO_PURCHASE_ANALYSIS_ABSTRACT'
+and users.UserName = fnd_global.USER_Name ))
+
+Order By poh.Creation_date DESC, pol.LINE_NUM) PurchaseOrderDetail
+
+Where 
+PurchaseOrderDetail.ExpItemDate Between Trunc(NVL(:StartDate,To_Date('22.09.1992','dd.MM.yyyy'))) and Trunc(NVL(:EndDate,To_Date('22.09.2050','dd.MM.yyyy')))
+and PurchaseOrderDetail.Company IN (:Company)
+-- and PurchaseOrderDetail.Country IN (:Country)
+-- and (Trim(PurchaseOrderDetail.Category_Name) IN Trim((:PurchasingCategory)) OR 'All' IN Trim((:PurchasingCategory || 'All'))) 
+and (Trim(PurchaseOrderDetail.ItemCategory_Name) IN Trim((:ItemCategory)) OR 'All' IN Trim((:ItemCategory || 'All')))
+-- and (PurchaseOrderDetail.AccountTotal IN (:Account) OR 'All' IN (:Account || 'All'))
