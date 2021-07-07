@@ -11,6 +11,9 @@ JEntries.Status,
 JEntries.Category,
 JEntries.EffectiveDate,
 JEntries.Period,
+JEntries.Invoice_Num,
+JEntries.EVENT_CLASS_CODE,
+JEntries.TransNumber,
 JEntries.PartyName,
 JEntries.PartySiteName,
 JEntries.LineNumber,
@@ -24,12 +27,9 @@ JEntries.AccountedCrebit,
 JEntries.EnteredDebit,
 JEntries.EnteredCrebit,
 JEntries.Rate,
-JEntries.Project,
 JEntries.CREATION_DATE,
 JEntries.CREATED_By,
-JEntries.CreatedFullName,
-JEntries.Task,
-JEntries.ExpOrg
+JEntries.CreatedFullName
 
 From
 
@@ -133,17 +133,19 @@ When PartyGen.PartyName is null and gcc.Segment2 like '159%' Then
 (
 	Select Distinct suppist.Vendor_Name
 	From xla_distribution_links xladist
-        Inner Join rcv_transactions rcvist
-            Inner Join PO_HEADERS_ALL pohist
-                Inner Join POZ_SUPPLIERS_V suppist 
-                ON suppist.Vendor_Id = pohist.Vendor_ID
-            ON pohist.Po_Header_Id = rcvist.Po_Header_Id
-        ON rcvist.Transaction_Id  = xladist.SOURCE_DISTRIBUTION_ID_NUM_1
+        Inner Join CMR_RCV_DISTRIBUTIONS rcvist
+            Inner Join cmr_rcv_events rcvevents
+                Inner Join PO_HEADERS_ALL pohist
+                    Inner Join POZ_SUPPLIERS_V suppist 
+                    ON suppist.Vendor_Id = pohist.Vendor_ID
+                ON rcvevents.source_doc_number = pohist.Segment1
+            ON rcvevents.ACCOUNTING_EVENT_ID = rcvist.ACCOUNTING_EVENT_ID
+        ON rcvist.CMR_SUB_LEDGER_ID  = xladist.SOURCE_DISTRIBUTION_ID_NUM_1
     Where xladist.AE_HEADER_ID = xlin.AE_HEADER_ID and xladist.AE_Line_Num = xlin.AE_Line_Num and xladist.SOURCE_DISTRIBUTION_TYPE = 'RECEIVING'
 
 )
 
-When PartyGen.PartyName is null and gcc.Segment2 like '320.001.001.999' and glh.JE_SOURCE = 'Receipt Accounting' Then  
+When PartyGen.PartyName is null and gcc.Segment2 like '320%' and glh.JE_SOURCE = 'Receipt Accounting' Then  
 (
 	Select Distinct suppist.Vendor_Name
 	From xla_distribution_links xladist
@@ -203,9 +205,6 @@ Where xent.Entity_Id = gll.Reference_5 and Rownum <= 1) = -10016)
 
 Then 'Employee Site'
 
--- Customer, Supplier Site Part
-When PartySiteGen.PartySiteName is not null Then PartySiteGen.PartySiteName
-
 When NVL(perexp.Display_Name,perexpgline.Display_Name) is not null Then 'Employee Site'
 
 When PartySiteGen.PartySiteName is null and gcc.Segment2 like '159%' Then  
@@ -238,8 +237,30 @@ When PartySiteGen.PartySiteName is null and gcc.Segment2 like '320.001.001.999' 
 
 )
 
+-- Customer, Supplier Site Part
+When PartySiteGen.PartySiteName is not null Then PartySiteGen.PartySiteName
+
 Else 'Non-PartySiteName'
 End as PartySiteName,
+
+(Select aia.Invoice_Num From XLA_DISTRIBUTION_LINKS xlad
+    Left Join AP_INVOICES_ALL aia ON aia.INVOICE_ID = xlad.APPLIED_TO_SOURCE_ID_NUM_1
+Where xlad.AE_HEADER_ID = xlin.AE_HEADER_ID AND xlad.AE_LINE_NUM = xlin.AE_LINE_NUM AND xlad.EVENT_CLASS_CODE = 'INVOICES' and Rownum <= 1 )
+as Invoice_Num,
+
+(Select Initcap(xlad.EVENT_CLASS_CODE) From XLA_DISTRIBUTION_LINKS xlad
+Where xlad.AE_HEADER_ID = xlin.AE_HEADER_ID AND xlad.AE_LINE_NUM = xlin.AE_LINE_NUM )
+as EVENT_CLASS_CODE,
+
+
+
+(Select * From (Select Distinct xtra.Transaction_Number From XLA_AE_HEADERS xlad
+Inner Join XLA_EVENTS xeve 
+    Inner Join XLA_TRANSACTION_ENTITIES xtra
+    ON xtra.application_id = xeve.application_id and xtra.Entity_Id = xeve.Entity_Id
+ON xeve.application_id = xlad.application_id and xeve.event_id = xlad.event_id
+Where xlad.AE_HEADER_ID = xlin.AE_HEADER_ID AND xlad.application_id = xlin.application_id ) Where Rownum <= 1)
+as TransNumber,
 
 gll.JE_LINE_NUM as LineNumber,
 Translate(gll.Description, chr(10)||chr(11)||chr(13), '   ') as LineDescription,
@@ -257,19 +278,16 @@ NVL(gll.ACCOUNTED_CR, 0) as AccountedCrebit,
 NVL(gll.ENTERED_DR, 0) as EnteredDebit,
 NVL(gll.ENTERED_CR, 0) as EnteredCrebit,
 
-gll.CURRENCY_CONVERSION_RATE as Rate,
-
-NVL(NVL(NVL(NVL(projGLlines.Segment1, projGLHeader.Segment1), proj.Segment1), projReceive.Segment1), 'Non-Project') as Project,
+Nvl(gll.CURRENCY_CONVERSION_RATE, 1) as Rate,
 
 gll.CREATION_DATE, 
 
 gll.CREATED_By,
 
-per.Display_Name as CreatedFullName,
 
-NVL(NVL(xlin.SR28, proct.Task_Number), 'Non-Task') Task,
+per.Display_Name as CreatedFullName
 
-NVL(NVL(NVL(horg.Name, horgline.Name), horghead.Name), 'Non-Organization') ExpOrg
+
 
 From GL_JE_LINES gll
    Inner Join GL_JE_HEADERS glh
@@ -279,11 +297,7 @@ From GL_JE_LINES gll
 
         -- GL Header Project
         -- AutoCopy - Manual - Spreadsheet
-        Left Join PJF_PROJECTS_ALL_VL projGLHeader
-        ON To_Char(glh.Attribute_Number5) = To_Char(projGLHeader.Project_ID)
-        Left Join HR_ORGANIZATION_V horghead
-        ON glh.ATTRIBUTE_NUMBER4 = horghead.ORGANIZATION_ID  and horghead.CLASSIFICATION_CODE='DEPARTMENT' and horghead.STATUS='A' and horghead.ATTRIBUTE3 like '%Direktörlük%'
-        and Trunc(Sysdate) between Trunc(horghead.EFFECTIVE_START_DATE) and Trunc(horghead.EFFECTIVE_END_DATE)
+      
     On glh.JE_HEADER_ID = gll.JE_HEADER_ID
 
     Inner Join GL_LEDGERS gled
@@ -325,13 +339,7 @@ From GL_JE_LINES gll
                 and Trunc(sysdate) between Trunc(perexp.Effective_Start_Date) and Trunc(perexp.Effective_End_Date)
             ON xlin.SR13 = peruser.PERSON_Number and Trunc(sysdate) between Trunc(peruser.Effective_Start_Date) and Trunc(peruser.Effective_End_Date)
             
-            Left Join PJF_PROJECTS_ALL_VL proj
-            ON To_Char(xlin.SR31) = To_Char(proj.Project_ID)
-            Left Join PJF_PROJECTS_ALL_VL projReceive
-            ON TO_CHAR(xlin.SR7) = TO_CHAR(projReceive.Project_ID)
-            Left Join HR_ORGANIZATION_V horg
-            ON TO_CHAR(xlin.SR8) = To_Char(horg.ORGANIZATION_ID)  and horg.CLASSIFICATION_CODE='DEPARTMENT' and horg.STATUS='A' and horg.ATTRIBUTE3 like '%Direktörlük%'
-            and Trunc(Sysdate) between Trunc(horg.EFFECTIVE_START_DATE) and Trunc(horg.EFFECTIVE_END_DATE)
+           
         ON xlin.gl_sl_link_table = import.gl_sl_link_table and  xlin.gl_sl_link_id = import.gl_sl_link_id
     ON gll.JE_HEADER_ID  = import.JE_HEADER_ID and gll.JE_LINE_NUM = import.JE_LINE_NUM
     
@@ -345,24 +353,17 @@ From GL_JE_LINES gll
         Inner Join PER_PERSON_NAMES_F_V perexpgline ON perexpgline.PERSON_ID = perusglline.PERSON_ID and perexpgline.Name_Type = 'GLOBAL' 
         and Trunc(sysdate) between Trunc(perexpgline.Effective_Start_Date) and Trunc(perexpgline.Effective_End_Date)
     ON gll.ATTRIBUTE2 = perusglline.PERSON_Number and Trunc(sysdate) between Trunc(perusglline.Effective_Start_Date) and Trunc(perusglline.Effective_End_Date)
-    Left Join PJF_PROJECTS_ALL_VL projGLlines
-    ON To_Char(gll.Attribute1) = To_Char(projGLlines.Project_ID)
-    Left Join PJF_TASKS_V  proct 
-    ON gll.ATTRIBUTE3  = proct.TASK_ID
-    Left Join HR_ORGANIZATION_V horgline
-    ON gll.ATTRIBUTE6 = horgline.ORGANIZATION_ID  and horgline.CLASSIFICATION_CODE='DEPARTMENT' and horgline.STATUS='A' and horgline.ATTRIBUTE3 like '%Direktörlük%'
-    and Trunc(Sysdate) between Trunc(horgline.EFFECTIVE_START_DATE) and Trunc(horgline.EFFECTIVE_END_DATE)
+
+
+ 
 ) JEntries
 
 Where  
 JEntries.LedgerName IN (:LEDGER)
 and JEntries.Status IN (:AccountingStatus)  
-and (JEntries.Period IN (:PERIOD) OR 'All' IN (:PERIOD || 'All'))
-
 and (JEntries.PartyName IN (:Party) OR 'All' IN (:Party || 'All'))
-and (JEntries.PartySiteName IN (:PartySiteName) OR 'All' IN (:PartySiteName || 'All'))
 and (JEntries.Account IN (:ACCOUNT) OR 'All' IN (:ACCOUNT || 'All'))
 And JEntries.EffectiveDate between NVL((:StartDate),TO_DATE('01.01.1999','dd.MM.yyyy')) and NVL((:EndDate),TO_DATE('01.01.2500','dd.MM.yyyy')) 
-and (JEntries.Project IN (:Project) OR 'All' IN (:Project || 'All'))
 
-Order By JEntries.EffectiveDate, JEntries.JournalName, JEntries.LineNumber
+
+Order By  JEntries.BatchName, JEntries.JournalName, JEntries.EffectiveDate, JEntries.LineNumber

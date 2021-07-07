@@ -13,7 +13,10 @@ TransDetailTable.CostCat,
 TransDetailTable.LocationTo,
 TransDetailTable.OrderNumber,
 TransDetailTable.ItemUnitWoutTx,
-TransDetailTable.ItemUnitWTx
+TransDetailTable.ItemUnitWTx,
+TransDetailTable.ItemUnitWoutTxDop,
+TransDetailTable.ItemUnitWTxDop,
+TransDetailTable.ExpOrg
 
 
 From 
@@ -40,6 +43,7 @@ invtra.TRANSACTION_REFERENCE TranRef,
 costcat.Description CostCat,
 placeexp.Description LocationTo,
 invtra.PJC_Expenditure_Item_Date ExpItemDate,
+horgline.Name ExpOrg,
 
 (Select * From 
         (Select poh.SEGMENT1
@@ -118,8 +122,43 @@ invtra.PJC_Expenditure_Item_Date ExpItemDate,
         and invorg.BUSINESS_UNIT_ID = pol.PRC_BU_ID
         and pol.Line_Status IN ('CLOSED','CLOSED FOR INVOICING', 'CLOSED FOR RECEIVING','FINALLY CLOSED')
         Order By poh.CREATION_DATE DESC)
-    Where Rownum <= 1) ItemUnitWTx
+    Where Rownum <= 1) ItemUnitWTx,
 
+    (Select * From 
+        (Select
+            Trunc(((Case 
+            WHEN poh.CURRENCY_CODE = 'DOP' Then (RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT)
+            Else (pod.RECOVERABLE_INCLUSIVE_TAX + pod.RECOVERABLE_TAX + pod.TAX_EXCLUSIVE_AMOUNT) * poh.RATE
+            End) / pod.QUANTITY_ORDERED), 5) ItemUnitWTx
+        From PO_LINES_ALL pol
+        Inner Join PO_HEADERS_ALL poh 
+        ON poh.PO_HEADER_ID = pol.PO_HEADER_ID  -- and poh.Document_Status IN ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
+        Inner Join PO_Distributions_ALL pod ON pol.PO_LINE_ID = pod.PO_LINE_ID
+        Where invtra.Inventory_Item_Id = pol.Item_ID      
+        and invtra.TRANSACTION_UOM = pol.UOM_CODE     
+        and invtra.TRANSACTION_DATE > poh.CREATION_DATE
+        and invorg.BUSINESS_UNIT_ID = pol.PRC_BU_ID
+        and pol.Line_Status IN ('CLOSED','CLOSED FOR INVOICING', 'CLOSED FOR RECEIVING','FINALLY CLOSED')
+        Order By poh.CREATION_DATE DESC)
+    Where Rownum <= 1) ItemUnitWTxDop,
+
+(Select * From 
+        (Select
+            Trunc(((Case 
+            WHEN poh.CURRENCY_CODE = 'DOP' Then (pod.TAX_EXCLUSIVE_AMOUNT)
+            Else (pod.TAX_EXCLUSIVE_AMOUNT) * poh.Rate
+            End) / pod.QUANTITY_ORDERED), 5) ItemUnitWoutTx
+        From PO_LINES_ALL pol
+        Inner Join PO_HEADERS_ALL poh 
+        ON poh.PO_HEADER_ID = pol.PO_HEADER_ID -- and poh.Document_Status IN ('CLOSED','CLOSED FOR INVOICING', 'OPEN',  'CLOSED FOR RECEIVING')
+        Inner Join PO_Distributions_ALL pod ON pol.PO_LINE_ID = pod.PO_LINE_ID
+        Where invtra.Inventory_Item_Id = pol.Item_ID      
+        and invtra.TRANSACTION_UOM = pol.UOM_CODE     
+        and invtra.TRANSACTION_DATE > poh.CREATION_DATE
+        and invorg.BUSINESS_UNIT_ID = pol.PRC_BU_ID
+        and pol.Line_Status IN ('CLOSED','CLOSED FOR INVOICING', 'CLOSED FOR RECEIVING','FINALLY CLOSED')
+        Order By poh.CREATION_DATE DESC)
+    Where Rownum <= 1) ItemUnitWoutTxDop
 
 -- (Select * From 
 --     (Select
@@ -144,8 +183,13 @@ Inner Join INV_ORG_PARAMETERS invorg ON invorg.Organization_Id = invtra.Organiza
 Inner Join egp_system_items_vl item ON item.Inventory_Item_Id = invtra.Inventory_Item_Id and item.Organization_Id = invtra.Organization_Id
 Left Join FND_VS_VALUES_VL costcat ON costcat.Value = invtra.ATTRIBUTE1 and costcat.ATTRIBUTE_CATEGORY like 'ACM_Business_Function_VS' 
 Left Join FND_VS_VALUES_VL placeexp ON placeexp.Value = invtra.ATTRIBUTE8 and placeexp.ATTRIBUTE_CATEGORY like 'ACM_Place_VS' 
+Left Join HR_ORGANIZATION_V horgline
+ON invtra.PJC_ORGANIZATION_ID = horgline.ORGANIZATION_ID  and horgline.CLASSIFICATION_CODE='DEPARTMENT' and horgline.STATUS='A' and horgline.ATTRIBUTE3 like '%Direktörlük%'
+and Trunc(Sysdate) between Trunc(horgline.EFFECTIVE_START_DATE) and Trunc(horgline.EFFECTIVE_END_DATE)
 -- and invtra.Inventory_Item_ID = '300000014045747'
-Where Trunc(invtra.TRANSACTION_DATE) between :P_Start and :P_End 
+Where 1=1
+-- and Trunc(invtra.TRANSACTION_DATE) between :P_Start and :P_End 
+and item.ITEM_NUMBER = '222266'
 Order By invtra.CREATION_DATE DESC) TransDetailTable
 -- Group By TransDetailTable.Project
 

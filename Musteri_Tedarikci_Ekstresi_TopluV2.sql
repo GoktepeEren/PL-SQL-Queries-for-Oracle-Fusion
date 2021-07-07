@@ -25,6 +25,7 @@ From
     BORC_YB,
     ALACAK_YB,
     SIRKET,
+    SIRKETID,
     VENDOR_NAME,
     DST_FLAG POST_FLAG
 
@@ -51,7 +52,8 @@ From
     (CASE WHEN AIA.EXCHANGE_RATE_TYPE IS NULL AND LIN_AMOUNT>0 THEN ABS(LIN_AMOUNT) WHEN AIA.EXCHANGE_RATE_TYPE IS NOT NULL  AND LIN_AMOUNT>0 THEN ABS(LIN_AMOUNT * AIA.EXCHANGE_RATE) ELSE 0 END)  ALACAK,
     (CASE WHEN AIA.EXCHANGE_RATE_TYPE IS NOT NULL  AND LIN_AMOUNT <0 THEN ABS(LIN_AMOUNT ) ELSE 0 END ) BORC_YB,
     (CASE WHEN AIA.EXCHANGE_RATE_TYPE IS NOT NULL  AND LIN_AMOUNT >0 THEN ABS(LIN_AMOUNT ) ELSE 0 END) ALACAK_YB,
-    (select min(com.NAME) from XLE_ENTITY_PROFILES com where  com.legal_entity_id=aia.legal_entity_id) SIRKET,
+    (select min(org.NAME) from HR_ALL_ORGANIZATION_UNITS org where  org.Organization_Id=aia.Org_Id) SIRKET,
+    aia.Org_Id SIRKETID,
     NVL(SPL.VENDOR_NAME,HZP.PARTY_NAME) VENDOR_NAME ,
     DST_FLAG 
     from 
@@ -95,14 +97,15 @@ From
     CAST(EXT.TRANSACTION_ID AS CHAR(20)) ISLEM_NO, 
     'Ext. İade' ISLEM_TURU,
     EXT.CURRENCY_CODE PARA_BIRIMI,
-    EXT.AMOUNT * -1 TUTAR,
-    (CASE WHEN EXT.BANK_CONVERSION_RATE_TYPE IS NULL AND EXT.AMOUNT < 0 THEN EXT.AMOUNT * -1 
-    WHEN EXT.BANK_CONVERSION_RATE_TYPE	 IS NOT NULL AND EXT.AMOUNT < 0 THEN (EXT.AMOUNT * BANK_CONVERSION_RATE) * -1 ELSE 0 END )BORC,
-    (CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NULL AND EXT.AMOUNT > 0 THEN EXT.AMOUNT * -1 
-    WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT > 0 THEN (EXT.AMOUNT * BANK_CONVERSION_RATE) * -1 ELSE 0 END ) ALACAK,
+    EXT.AMOUNT  TUTAR,
+    (CASE WHEN EXT.BANK_CONVERSION_RATE_TYPE IS NULL AND EXT.AMOUNT < 0 THEN EXT.AMOUNT * -1
+    WHEN EXT.BANK_CONVERSION_RATE_TYPE	 IS NOT NULL AND EXT.AMOUNT < 0 THEN (EXT.AMOUNT * BANK_CONVERSION_RATE) * -1  ELSE 0 END )BORC,
+    (CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NULL AND EXT.AMOUNT > 0 THEN EXT.AMOUNT  
+    WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT > 0 THEN (EXT.AMOUNT * BANK_CONVERSION_RATE)  ELSE 0 END ) ALACAK,
     CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT < 0 THEN EXT.AMOUNT * -1 ELSE 0 END  BORC_YB,
-    CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT > 0 THEN EXT.AMOUNT * -1 ELSE 0 END  ALACAK_YB,
-    (select min(com.NAME) from XLE_ENTITY_PROFILES com where  com.legal_entity_id=EXT.legal_entity_id) SIRKET,
+    CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT > 0 THEN EXT.AMOUNT  ELSE 0 END  ALACAK_YB,
+    (select min(org.NAME) from HR_ALL_ORGANIZATION_UNITS org where  org.Organization_Id = EXT.Business_Unit_Id) SIRKET,
+    EXT.Business_Unit_Id SIRKETID,
     HP.PARTY_NAME VENDOR_NAME ,
     ACCOUNTING_FLAG DST_FLAG 
     FROM CE_EXTERNAL_TRANSACTIONS EXT 
@@ -116,6 +119,54 @@ From
 
 
     )
+    union all
+    -- Avanslar için GL Fişinden Personel ' ya göre bakiye getiriyor.
+    (
+    SELECT 
+    'GL-Manual' REC_TYPE,
+    perusglline.PERSON_Number as TED_NO,
+    perexpgline.Display_Name as CH_UNV,
+    gll.EFFECTIVE_DATE as  ISLEM_TAR,
+    gll.EFFECTIVE_DATE as  VADE_TAR,
+    gll.EFFECTIVE_DATE as ACC_DATE,
+    ' ' as  E_FATURA,	
+    To_Char(glh.NAME) as ISLEM_NO, 
+    'Muh. Fişi'  as ISLEM_TURU,
+    gll.CURRENCY_CODE as PARA_BIRIMI,
+    NVL(gll.ENTERED_CR, 0)  TUTAR,
+    NVL(gll.ACCOUNTED_DR, 0) as BORC,
+    NVL(gll.ACCOUNTED_CR, 0) as ALACAK,
+    CASE WHEN  gll.CURRENCY_CONVERSION_RATE <> 1  THEN NVL(gll.ENTERED_DR, 0) ELSE 0 END  BORC_YB,
+    CASE WHEN  gll.CURRENCY_CONVERSION_RATE <> 1  THEN NVL(gll.ENTERED_CR, 0) ELSE 0 END  ALACAK_YB,
+    CAST(horg.NAME AS VARCHAR2(255)) as SIRKET, 
+    horg.ORGANIZATION_ID as SIRKETID,
+    perexpgline.Display_Name as VENDOR_NAME ,
+    Case When gll.Status = 'P' Then 'Y' Else 'N' END as DST_FLAG
+
+
+    From GL_JE_LINES gll
+        Inner Join GL_LEDGERS gled
+            Inner Join HR_OPERATING_UNITS horg
+            ON horg.SET_OF_BOOKS_ID = gled.Ledger_Id
+        ON gll.Ledger_Id = gled.Ledger_Id 
+
+        Inner Join GL_JE_HEADERS glh
+        On glh.JE_HEADER_ID = gll.JE_HEADER_ID
+
+        Inner Join  GL_CODE_COMBINATIONS gcc
+        ON gll.CODE_COMBINATION_ID = gcc.CODE_COMBINATION_ID
+
+    -- Employee
+        Left Join per_all_people_f perusglline       
+            Inner Join PER_PERSON_NAMES_F_V perexpgline ON perexpgline.PERSON_ID = perusglline.PERSON_ID and perexpgline.Name_Type = 'GLOBAL' 
+            and Trunc(sysdate) between Trunc(perexpgline.Effective_Start_Date) and Trunc(perexpgline.Effective_End_Date)
+        ON gll.ATTRIBUTE2 = perusglline.PERSON_Number and Trunc(sysdate) between Trunc(perusglline.Effective_Start_Date) and Trunc(perusglline.Effective_End_Date)
+
+    Where gcc.Segment2 = '195.001.001.001' 
+    and gled.Name not like '%_USD'
+    )
+
+
     union all 
     (
     select  
@@ -135,7 +186,9 @@ From
     (CASE WHEN ACA.EXCHANGE_RATE_TYPE IS NULL AND ACA.AMOUNT*-1>0 THEN ABS(ACA.AMOUNT) WHEN ACA.EXCHANGE_RATE_TYPE IS NOT NULL  AND  ACA.BASE_AMOUNT*-1>0 THEN ABS(ACA.BASE_AMOUNT) ELSE 0 END)  ALACAK ,
     (CASE WHEN ACA.EXCHANGE_RATE_TYPE IS NOT NULL  AND  ACA.AMOUNT*-1 <0 THEN ABS(ACA.AMOUNT) ELSE 0 END) BORC_YB,
     (CASE WHEN ACA.EXCHANGE_RATE_TYPE IS NOT NULL  AND ACA.AMOUNT*-1>0 THEN ABS(ACA.AMOUNT) ELSE 0 END)  ALACAK_YB,
-    (select min(com.NAME) from XLE_ENTITY_PROFILES com where  com.legal_entity_id=aca.legal_entity_id) SIRKET,
+    (select min(org.NAME) from HR_ALL_ORGANIZATION_UNITS org where  org.Organization_Id=aca.Org_Id) SIRKET,
+    aca.Org_Id SIRKETID,
+
     NVL(SPLS.VENDOR_NAME,ACA.VENDOR_NAME) W_VENDOR_NAME ,
     POSTED_FLAG  DST_FLAG
     from 
@@ -159,8 +212,8 @@ From
 
     where
     1=1
-    and (VENDOR_NAME = :p_party_name or LEAST(:p_party_name) IS NULL)
-    and ISLEM_TAR>=:p_date_from and ISLEM_TAR<= :p_date_end and SIRKET=:p_entity_name
+    and (Trim(VENDOR_NAME) = Trim(:p_party_name) or LEAST(:p_party_name) IS NULL)
+    and ISLEM_TAR>=:p_date_from and ISLEM_TAR<= :p_date_end and SIRKETID=:p_businessunit_id
 
     ) 
 
@@ -172,7 +225,9 @@ From
     TED_NO,CH_UNV, 
     min(ISLEM_TAR),
     min(VADE_TAR)
-    ,min(ACC_Date),' 'aa,' ' ab, 'Devreden Bakiye',PARA_BIRIMI,sum(TUTAR*-1) as TUTAR,sum(BORC)as BORC,sum(ALACAK) as ALACAK,sum(BORC_YB) as BORC_YB,sum(ALACAK_YB) as ALACAK_YB,min(SIRKET) SIRKET,vendor_name,DST_FLAG POST_FLAG
+    ,min(ACC_Date),' 'aa,' ' ab, 'Devreden Bakiye',PARA_BIRIMI,sum(TUTAR*-1) as TUTAR,
+    sum(BORC)as BORC,sum(ALACAK) as ALACAK,sum(BORC_YB) as BORC_YB,sum(ALACAK_YB) as ALACAK_YB,
+    min(SIRKET) SIRKET, min(SIRKETID),vendor_name,DST_FLAG POST_FLAG
     from 
 
     (
@@ -195,7 +250,8 @@ From
     (CASE WHEN AIA.EXCHANGE_RATE_TYPE IS NULL AND LIN_AMOUNT>0 THEN ABS(LIN_AMOUNT) WHEN AIA.EXCHANGE_RATE_TYPE IS NOT NULL  AND LIN_AMOUNT>0 THEN ABS(LIN_AMOUNT * AIA.EXCHANGE_RATE) ELSE 0 END)  ALACAK,
     (CASE WHEN AIA.EXCHANGE_RATE_TYPE IS NOT NULL  AND LIN_AMOUNT <0 THEN ABS(LIN_AMOUNT ) ELSE 0 END ) BORC_YB,
     (CASE WHEN AIA.EXCHANGE_RATE_TYPE IS NOT NULL  AND LIN_AMOUNT >0 THEN ABS(LIN_AMOUNT ) ELSE 0 END) ALACAK_YB,
-    (select min(com.NAME) from XLE_ENTITY_PROFILES com where  com.legal_entity_id=aia.legal_entity_id) SIRKET,
+    (select min(org.NAME) from HR_ALL_ORGANIZATION_UNITS org where  org.Organization_Id=aia.Org_Id) SIRKET,
+    aia.Org_Id SIRKETID,
     NVL(SPL.VENDOR_NAME,HZP.PARTY_NAME) VENDOR_NAME ,
     DST_FLAG 
     from 
@@ -236,14 +292,15 @@ From
     CAST(EXT.TRANSACTION_ID AS CHAR(20)) ISLEM_NO, 
     'Ext. İade' ISLEM_TURU,
     EXT.CURRENCY_CODE PARA_BIRIMI,
-    EXT.AMOUNT * -1 TUTAR,
-    (CASE WHEN EXT.BANK_CONVERSION_RATE_TYPE IS NULL AND EXT.AMOUNT < 0 THEN EXT.AMOUNT * -1 
+    EXT.AMOUNT  TUTAR,
+    (CASE WHEN EXT.BANK_CONVERSION_RATE_TYPE IS NULL AND EXT.AMOUNT < 0 THEN EXT.AMOUNT * -1
     WHEN EXT.BANK_CONVERSION_RATE_TYPE	 IS NOT NULL AND EXT.AMOUNT < 0 THEN (EXT.AMOUNT * BANK_CONVERSION_RATE) * -1 ELSE 0 END )BORC,
-    (CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NULL AND EXT.AMOUNT > 0 THEN EXT.AMOUNT * -1 
-    WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT > 0 THEN (EXT.AMOUNT * BANK_CONVERSION_RATE) * -1 ELSE 0 END ) ALACAK,
-    CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT < 0 THEN EXT.AMOUNT * -1 ELSE 0 END  BORC_YB,
-    CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT > 0 THEN EXT.AMOUNT * -1 ELSE 0 END  ALACAK_YB,
-    (select min(com.NAME) from XLE_ENTITY_PROFILES com where  com.legal_entity_id=EXT.legal_entity_id) SIRKET,
+    (CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NULL AND EXT.AMOUNT > 0 THEN EXT.AMOUNT  
+    WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT > 0 THEN (EXT.AMOUNT * BANK_CONVERSION_RATE)  ELSE 0 END ) ALACAK,
+    CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT < 0 THEN EXT.AMOUNT * -1  ELSE 0 END  BORC_YB,
+    CASE WHEN  EXT.BANK_CONVERSION_RATE_TYPE IS NOT NULL AND EXT.AMOUNT > 0 THEN EXT.AMOUNT  ELSE 0 END  ALACAK_YB,
+    (select min(org.NAME) from HR_ALL_ORGANIZATION_UNITS org where  org.Organization_Id=EXT.Business_Unit_Id) SIRKET,
+    EXT.Business_Unit_Id SIRKETID,
     HP.PARTY_NAME VENDOR_NAME ,
     ACCOUNTING_FLAG DST_FLAG 
     FROM CE_EXTERNAL_TRANSACTIONS EXT 
@@ -254,9 +311,55 @@ From
     --AND EXT.TRANSACTION_ID=93046 
     AND CC.CODE_COMBINATION_ID = EXT.OFFSET_CCID 
     AND CC.SEGMENT2 = '195.001.001.001' 
-
-
     )
+
+     union all
+    -- Avanslar için GL Fişinden Personel ' ya göre bakiye getiriyor.
+    (
+    SELECT 
+    'GL-Manual' REC_TYPE,
+    perusglline.PERSON_Number as TED_NO,
+    perexpgline.Display_Name as CH_UNV,
+    gll.EFFECTIVE_DATE as  ISLEM_TAR,
+    gll.EFFECTIVE_DATE as  VADE_TAR,
+    gll.EFFECTIVE_DATE as ACC_DATE,
+    ' ' as  E_FATURA,	
+    To_Char(glh.NAME) as ISLEM_NO, 
+    'Muh. Fişi'  as ISLEM_TURU,
+    gll.CURRENCY_CODE as PARA_BIRIMI,
+    NVL(gll.ENTERED_CR, 0)  TUTAR,
+    NVL(gll.ACCOUNTED_DR, 0) as BORC,
+    NVL(gll.ACCOUNTED_CR, 0) as ALACAK,
+    CASE WHEN  gll.CURRENCY_CONVERSION_RATE <> 1  THEN NVL(gll.ENTERED_DR, 0) ELSE 0 END  BORC_YB,
+    CASE WHEN  gll.CURRENCY_CONVERSION_RATE <> 1  THEN NVL(gll.ENTERED_CR, 0) ELSE 0 END  ALACAK_YB,
+    CAST(horg.NAME AS VARCHAR2(255)) as SIRKET, 
+    horg.ORGANIZATION_ID as SIRKETID,
+    perexpgline.Display_Name as VENDOR_NAME ,
+    Case When gll.Status = 'P' Then 'Y' Else 'N' END as DST_FLAG
+
+
+    From GL_JE_LINES gll
+        Inner Join GL_LEDGERS gled
+            Inner Join HR_OPERATING_UNITS horg
+            ON horg.SET_OF_BOOKS_ID = gled.Ledger_Id
+        ON gll.Ledger_Id = gled.Ledger_Id 
+
+        Inner Join GL_JE_HEADERS glh
+        On glh.JE_HEADER_ID = gll.JE_HEADER_ID
+
+        Inner Join  GL_CODE_COMBINATIONS gcc
+        ON gll.CODE_COMBINATION_ID = gcc.CODE_COMBINATION_ID
+
+    -- Employee
+        Left Join per_all_people_f perusglline       
+            Inner Join PER_PERSON_NAMES_F_V perexpgline ON perexpgline.PERSON_ID = perusglline.PERSON_ID and perexpgline.Name_Type = 'GLOBAL' 
+            and Trunc(sysdate) between Trunc(perexpgline.Effective_Start_Date) and Trunc(perexpgline.Effective_End_Date)
+        ON gll.ATTRIBUTE2 = perusglline.PERSON_Number and Trunc(sysdate) between Trunc(perusglline.Effective_Start_Date) and Trunc(perusglline.Effective_End_Date)
+
+    Where gcc.Segment2 = '195.001.001.001' 
+    and gled.Name not like '%_USD'
+    )
+
     union all 
 
     (
@@ -277,7 +380,8 @@ From
     (CASE WHEN ACA.EXCHANGE_RATE_TYPE IS NULL AND ACA.AMOUNT*-1>0 THEN ABS(ACA.AMOUNT) WHEN ACA.EXCHANGE_RATE_TYPE IS NOT NULL  AND  ACA.BASE_AMOUNT*-1>0 THEN ABS(ACA.BASE_AMOUNT) ELSE 0 END)  ALACAK ,
     (CASE WHEN ACA.EXCHANGE_RATE_TYPE IS NOT NULL  AND  ACA.AMOUNT*-1 <0 THEN ABS(ACA.AMOUNT) ELSE 0 END) BORC_YB,
     (CASE WHEN ACA.EXCHANGE_RATE_TYPE IS NOT NULL  AND ACA.AMOUNT*-1>0 THEN ABS(ACA.AMOUNT) ELSE 0 END)  ALACAK_YB,
-    (select min(com.NAME) from XLE_ENTITY_PROFILES com where  com.legal_entity_id=aca.legal_entity_id) SIRKET,
+    (select min(org.NAME) from HR_ALL_ORGANIZATION_UNITS org where  org.Organization_Id=aca.Org_Id) SIRKET,
+    aca.Org_Id SIRKETID,
     NVL(SPLS.VENDOR_NAME,aca.VENDOR_NAME) W_VENDOR_NAME ,
     ' ' DST_FLAG
     from 
@@ -289,8 +393,8 @@ From
     ) 
 
     where
-    (VENDOR_NAME = :p_party_name or LEAST(:p_party_name) IS NULL)
-    and ISLEM_TAR<:p_date_from  and SIRKET=:p_entity_name 
+    (Trim(VENDOR_NAME) = Trim(:p_party_name) or LEAST(:p_party_name) IS NULL)
+    and ISLEM_TAR<:p_date_from  and SIRKETID=:p_businessunit_id  
     group by CH_UNV,REC_TYPE,TED_NO,PARA_BIRIMI,VENDOR_NAME,DST_FLAG 
 
 
@@ -318,6 +422,7 @@ Union All
     borcyb,
     alacakyb,
     Sirket,
+    SIRKETID,
     '' vendor_name,
     '' POST_FLAG
     from (
@@ -335,6 +440,7 @@ Union All
     a.trx_number,
     Case When (a.class = 'CM')
     Then  a.class || (Select  ' - ' || orgdoc.TRX_NUMBER from RA_CUSTOMER_TRX_ALL orgdoc Where orgdoc.CUSTOMER_TRX_ID = (Select cmdoc.PREVIOUS_CUSTOMER_TRX_ID  From RA_CUSTOMER_TRX_ALL cmdoc Where A.CUSTOMER_TRX_ID = cmdoc.CUSTOMER_TRX_ID and rownum <= 1))
+    When (a.class = 'PMT') Then 'Tahsilat'
     Else a.class End as class,
 
     a.INVOICE_CURRENCY_CODE,
@@ -387,8 +493,10 @@ Case
     End    
 ALACAKYB,
     
-    NVL((select min(c.name) from  AR_CASH_RECEIPTS_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.RECEIPT_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  )
-    ,(select min(c.name) from  RA_CUSTOMER_TRX_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.TRX_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  ) )  sirket,
+    CAST(ORG.NAME AS VARCHAR2(255)) sirket,
+    ORG.ORGANIZATION_ID SIRKETID,
+    -- NVL((select min(c.name) from  AR_CASH_RECEIPTS_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.RECEIPT_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  )
+    -- ,(select min(c.name) from  RA_CUSTOMER_TRX_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.TRX_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  ) )  sirket,
     
     '' vendor_name,
     '' POST_FLAG
@@ -396,11 +504,12 @@ ALACAKYB,
     from 
     ar_payment_schedules_all a, 
     hz_cust_accounts c ,
-    hz_parties prt 
+    hz_parties prt,
+    HR_ALL_ORGANIZATION_UNITS  ORG
     where 
     1=1 
-    AND 
-    
+    AND ORG.ORGANIZATION_ID = A.ORG_ID 
+    AND
     Case
     When A.Class <> 'BR' Then A.CUSTOMER_ID 
     Else 
@@ -408,10 +517,9 @@ ALACAKYB,
     RA_CUSTOMER_TRX_LINES_ALL lines
     Inner Join RA_CUSTOMER_TRX_ALL br_trx 
     ON lines.BR_REF_Customer_TRX_Id = br_trx.customer_trx_id Where Rownum <= 1 and A.Customer_Trx_Id = lines.Customer_Trx_Id )
-    End = C.CUST_ACCOUNT_ID 
+    End = C.CUST_ACCOUNT_ID
 
-    and 
-    Case
+    and Case
     When A.Class <> 'BR' Then C.PARTY_ID 
     Else 
     (Select cust.party_id  From
@@ -420,13 +528,13 @@ ALACAKYB,
         Inner Join HZ_CUST_ACCOUNTS cust
         ON br_trx.BILL_TO_CUSTOMER_ID = cust.CUST_ACCOUNT_ID  
     ON lines.BR_REF_Customer_TRX_Id = br_trx.customer_trx_id Where Rownum <= 1 and A.Customer_Trx_Id = lines.Customer_Trx_Id )
-    End = PRT.PARTY_ID
-    
-    -- Reverse kayıtları getirmemek için
+    End = PRT.PARTY_ID 
+
+    -- Reverse kayıtların gelmemesi için yazıldı
     AND ((A.CASH_RECEIPT_ID is NULL) OR ((Select casRec.status From AR_CASH_RECEIPTS_ALL casRec Where A.CASH_RECEIPT_ID = casRec.CASH_RECEIPT_ID ) <> 'REV'))
-    AND TO_DATE(TO_CHAR(A.TRX_DATE,'YYYY/MM/DD'),'YYYY/MM/DD') >= TO_DATE(TO_CHAR(:p_date_from,'YYYY/MM/DD'),'YYYY/MM/DD')
-    AND TO_DATE(TO_CHAR(A.TRX_DATE,'YYYY/MM/DD'),'YYYY/MM/DD') <= TO_DATE(TO_CHAR(:p_date_end,'YYYY/MM/DD'),'YYYY/MM/DD')
-    
+    AND TO_DATE(TO_CHAR(A.TRX_DATE,'YYYY/MM/DD'),'YYYY/MM/DD') >= TO_DATE(TO_CHAR(:P_DATE_FROM,'YYYY/MM/DD'),'YYYY/MM/DD')
+    AND TO_DATE(TO_CHAR(A.TRX_DATE,'YYYY/MM/DD'),'YYYY/MM/DD') <= TO_DATE(TO_CHAR(:P_DATE_END,'YYYY/MM/DD'),'YYYY/MM/DD')
+
     UNION ALL 
 
     select 
@@ -446,6 +554,7 @@ ALACAKYB,
     SUM(BORCYB) BORCYB,
     SUM(ALACAKYB) ALACAKYB,
     sirket,
+    SIRKETID,
     '' vendor_name,
     '' POST_FLAG
     FROM 
@@ -454,7 +563,7 @@ ALACAKYB,
     'AR-Musteri' AS Rec_Type,
     c.account_number,
     prt.party_name account_name,
-    A.TRX_DATE trx_date ,
+    TO_DATE(TO_CHAR(:p_date_from,'YYYY/MM/DD'),'YYYY/MM/DD') trx_date ,
     NULL DUE_DATE,
     TO_DATE(TO_CHAR(A.GL_DATE,'YYYY/MM/DD'),'YYYY/MM/DD')  Acc_Date,
     -- '' as ACC_Date,
@@ -462,33 +571,91 @@ ALACAKYB,
     CAST('Devir ' AS CHAR(30)) CLASS,
     A.INVOICE_CURRENCY_CODE,
     A.AMOUNT_DUE_ORIGINAL AMOUNT_DUE_ORIGINAL,
-    CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND 
-    A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
-    WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND 
-    A.AMOUNT_DUE_ORIGINAL>0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
-    ELSE 0 END  BORC,
-    CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL  AND 
-    A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
-    WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND 
-    A.AMOUNT_DUE_ORIGINAL<0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
-    ELSE 0 END ALACAK,
-    CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL  AND 
-    A.AMOUNT_DUE_ORIGINAL>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
-    ELSE 0 END BORCYB,
-    CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL  AND 
-    A.AMOUNT_DUE_ORIGINAL<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
-    ELSE 0 END ALACAKYB,
-    NVL((select min(c.name) from  AR_CASH_RECEIPTS_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.RECEIPT_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  )
-    ,(select min(c.name) from  RA_CUSTOMER_TRX_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.TRX_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  ) )  sirket
+    Case
+        When A.Class <> 'BR' Then 
+            CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+            WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+            ELSE 0 END 
+        Else
+            CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+            WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+            ELSE 0 END
+        End
+    BORC,
+
+    Case 
+        When A.Class <> 'BR' Then
+            CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+            WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+            ELSE 0 END 
+        Else
+            CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+            WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+            ELSE 0 END 
+        End
+    ALACAK,
+
+
+    Case 
+        When A.Class <> 'BR' Then
+            CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+            ELSE 0 END 
+        Else
+            CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+            ELSE 0 END
+        End
+        
+    BORCYB,
+
+    Case 
+        When A.Class <> 'BR' Then
+            CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+            ELSE 0 END 
+        Else
+            CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+            ELSE 0 END 
+        End    
+    ALACAKYB,
+    -- NVL((select min(c.name) from  AR_CASH_RECEIPTS_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.RECEIPT_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  )
+    -- ,(select min(c.name) from  RA_CUSTOMER_TRX_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.TRX_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  ) )  sirket
+    CAST(ORG.NAME AS VARCHAR2(255)) sirket,
+    ORG.ORGANIZATION_ID SIRKETID
     FROM 
     AR_PAYMENT_SCHEDULES_ALL A, 
     HZ_CUST_ACCOUNTS C ,
-    HZ_CUST_SITE_USES_ALL USE ,
-    (SELECT PARTY_ID , MAX(PARTY_NAME) PARTY_NAME FROM HZ_PARTIES GROUP BY PARTY_ID ) PRT
+    (SELECT PARTY_ID , MAX(PARTY_NAME) PARTY_NAME FROM HZ_PARTIES GROUP BY PARTY_ID ) PRT,
+    HR_ALL_ORGANIZATION_UNITS  ORG
+
     WHERE 
     1=1 
-    AND A.CUSTOMER_ID=C.CUST_ACCOUNT_ID 
-    AND PRT.PARTY_ID=C.PARTY_ID 
+    -- Faktöring
+    AND
+    (Case
+    When A.Class <> 'BR' Then A.CUSTOMER_ID 
+    Else 
+    (Select br_trx.BILL_TO_CUSTOMER_ID  From
+    RA_CUSTOMER_TRX_LINES_ALL lines
+    Inner Join RA_CUSTOMER_TRX_ALL br_trx 
+    ON lines.BR_REF_Customer_TRX_Id = br_trx.customer_trx_id Where Rownum <= 1 and A.Customer_Trx_Id = lines.Customer_Trx_Id )
+    End = C.CUST_ACCOUNT_ID)
+
+    -- Faktöring Alt Müşteri 
+    And (Case
+    When A.Class <> 'BR' Then C.PARTY_ID 
+    Else 
+    (Select cust.party_id  From
+    RA_CUSTOMER_TRX_LINES_ALL lines
+    Inner Join RA_CUSTOMER_TRX_ALL br_trx
+        Inner Join HZ_CUST_ACCOUNTS cust
+        ON br_trx.BILL_TO_CUSTOMER_ID = cust.CUST_ACCOUNT_ID  
+    ON lines.BR_REF_Customer_TRX_Id = br_trx.customer_trx_id Where Rownum <= 1 and A.Customer_Trx_Id = lines.Customer_Trx_Id )
+    End = PRT.PARTY_ID)
+    
+    AND ORG.ORGANIZATION_ID = A.ORG_ID 
+
+    -- Reverse kayıtların gelmemesi için yazıldı
+    AND ((A.CASH_RECEIPT_ID is NULL) OR ((Select casRec.status From AR_CASH_RECEIPTS_ALL casRec Where A.CASH_RECEIPT_ID = casRec.CASH_RECEIPT_ID ) <> 'REV'))
+
     -- PARAMETRE EKRANINDAN SECILEN ORG. TANIMININ ID SINI GONDERIYOR !!
     AND TO_DATE(TO_CHAR(A.TRX_DATE,'YYYY/MM/DD'),'YYYY/MM/DD') < TO_DATE(TO_CHAR(:p_date_from,'YYYY/MM/DD'),'YYYY/MM/DD')
     )DVR
@@ -501,12 +668,13 @@ ALACAKYB,
     TRX_NUMBER,
     CLASS,
     INVOICE_CURRENCY_CODE,
-    sirket
+    sirket,
+    SIRKETID
     ) 
     where 
     1=1  
-    AND account_name = :p_party_name 
-    AND Sirket = :p_entity_name
+    AND Trim(account_name) = Trim(:p_party_name) 
+    AND SIRKETID = :p_businessunit_id
     -- order by Rec_Type,account_number,INVOICE_CURRENCY_CODE
     )
 

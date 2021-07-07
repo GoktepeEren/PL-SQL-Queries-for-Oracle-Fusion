@@ -1,0 +1,256 @@
+select 
+Rec_Type,
+account_number, 
+account_name,
+trx_date,
+due_date,
+trx_number,
+class,
+INVOICE_CURRENCY_CODE,
+AMOUNT_DUE_ORIGINAL,
+borc,
+alacak,
+borcyb,
+alacakyb,
+Sirket,
+SIRKETID
+from (
+
+select 
+'AR-Musteri' AS Rec_Type,
+c.account_number,
+prt.party_name account_name,
+a.trx_date,
+a.due_date,
+a.trx_number,
+Case 
+When A.CLASS = 'PMT' Then 'Tahsilat'
+Else A.CLASS
+End CLASS,
+a.INVOICE_CURRENCY_CODE,
+a.AMOUNT_DUE_ORIGINAL,
+
+Case
+    When A.Class <> 'BR' Then 
+        CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+        WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    Else
+        CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+        WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END
+    End
+ BORC,
+
+Case 
+    When A.Class <> 'BR' Then
+        CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+        WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    Else
+        CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+        WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    End
+ALACAK,
+
+
+Case 
+    When A.Class <> 'BR' Then
+        CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    Else
+        CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END
+    End
+    
+BORCYB,
+
+Case 
+    When A.Class <> 'BR' Then
+        CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    Else
+        CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    End    
+ALACAKYB,
+
+CAST(ORG.NAME AS VARCHAR2(255)) sirket,
+ORG.ORGANIZATION_ID SIRKETID
+-- NVL((select min(c.name) from  AR_CASH_RECEIPTS_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.RECEIPT_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  )
+-- ,(select min(c.name) from  RA_CUSTOMER_TRX_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.TRX_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  ) )  sirket
+ 
+ from 
+ar_payment_schedules_all a, 
+hz_cust_accounts c ,
+hz_parties prt,
+HR_ALL_ORGANIZATION_UNITS  ORG
+
+where 
+1=1 
+AND ORG.ORGANIZATION_ID = A.ORG_ID 
+-- Faktöring
+AND
+(Case
+When A.Class <> 'BR' Then A.CUSTOMER_ID 
+Else 
+(Select br_trx.BILL_TO_CUSTOMER_ID  From
+RA_CUSTOMER_TRX_LINES_ALL lines
+Inner Join RA_CUSTOMER_TRX_ALL br_trx 
+ON lines.BR_REF_Customer_TRX_Id = br_trx.customer_trx_id Where Rownum <= 1 and A.Customer_Trx_Id = lines.Customer_Trx_Id )
+End = C.CUST_ACCOUNT_ID)
+
+-- Faktöring Alt Müşteri 
+And (Case
+When A.Class <> 'BR' Then C.PARTY_ID 
+Else 
+(Select cust.party_id  From
+RA_CUSTOMER_TRX_LINES_ALL lines
+Inner Join RA_CUSTOMER_TRX_ALL br_trx
+    Inner Join HZ_CUST_ACCOUNTS cust
+    ON br_trx.BILL_TO_CUSTOMER_ID = cust.CUST_ACCOUNT_ID  
+ON lines.BR_REF_Customer_TRX_Id = br_trx.customer_trx_id Where Rownum <= 1 and A.Customer_Trx_Id = lines.Customer_Trx_Id )
+End = PRT.PARTY_ID)
+
+-- Reverse kayıtların gelmemesi için yazıldı
+AND ((A.CASH_RECEIPT_ID is NULL) OR ((Select casRec.status From AR_CASH_RECEIPTS_ALL casRec Where A.CASH_RECEIPT_ID = casRec.CASH_RECEIPT_ID ) <> 'REV'))
+AND TO_DATE(TO_CHAR(A.TRX_DATE,'YYYY/MM/DD'),'YYYY/MM/DD') >= TO_DATE(TO_CHAR(:P_DATE_FROM,'YYYY/MM/DD'),'YYYY/MM/DD')
+AND TO_DATE(TO_CHAR(A.TRX_DATE,'YYYY/MM/DD'),'YYYY/MM/DD') <= TO_DATE(TO_CHAR(:P_DATE_END,'YYYY/MM/DD'),'YYYY/MM/DD')
+
+UNION ALL 
+
+select 
+rec_type,
+account_number,
+account_name,
+Max(TRX_DATE) trx_date,
+DUE_DATE,
+TRX_NUMBER,
+CLASS,
+INVOICE_CURRENCY_CODE,
+SUM(AMOUNT_DUE_ORIGINAL) AMOUNT_DUE_ORIGINAL,
+SUM(BORC) BORC,
+SUM(ALACAK) ALACAK,
+SUM(BORCYB) BORCYB,
+SUM(ALACAKYB) ALACAKYB,
+sirket,
+SIRKETID
+
+FROM 
+(
+SELECT 
+'AR-Musteri' AS Rec_Type,
+c.account_number,
+prt.party_name account_name,
+TO_DATE(TO_CHAR(:P_DATE_FROM,'YYYY/MM/DD'),'YYYY/MM/DD') trx_date ,
+NULL DUE_DATE,
+NULL TRX_NUMBER,
+CAST('Devir ' AS CHAR(30)) CLASS,
+A.INVOICE_CURRENCY_CODE,
+A.AMOUNT_DUE_ORIGINAL AMOUNT_DUE_ORIGINAL,
+Case
+    When A.Class <> 'BR' Then 
+        CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+        WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    Else
+        CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+        WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END
+    End
+ BORC,
+
+Case 
+    When A.Class <> 'BR' Then
+        CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+        WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    Else
+        CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL*EXCHANGE_RATE)
+        WHEN A.EXCHANGE_RATE_TYPE IS NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN  ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    End
+ALACAK,
+
+
+Case 
+    When A.Class <> 'BR' Then
+        CASE WHEN  A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    Else
+        CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL  AND A.AMOUNT_DUE_ORIGINAL<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END
+    End
+    
+BORCYB,
+
+Case 
+    When A.Class <> 'BR' Then
+        CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL<0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    Else
+        CASE WHEN A.EXCHANGE_RATE_TYPE IS NOT NULL AND A.AMOUNT_DUE_ORIGINAL>0 THEN ABS(A.AMOUNT_DUE_ORIGINAL)
+        ELSE 0 END 
+    End    
+ALACAKYB,
+
+CAST(ORG.NAME AS VARCHAR2(255)) sirket,
+ ORG.ORGANIZATION_ID SIRKETID
+ -- NVL((select min(c.name) from  AR_CASH_RECEIPTS_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.RECEIPT_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  )
+-- ,(select min(c.name) from  RA_CUSTOMER_TRX_ALL b , XLE_ENTITY_PROFILES c  where  a.tRX_NUMBER=b.TRX_NUMBER  and  b.Legal_entity_id=c.Legal_entity_id  ) )  sirket
+ FROM 
+AR_PAYMENT_SCHEDULES_ALL A, 
+HZ_CUST_ACCOUNTS C ,
+(SELECT PARTY_ID , MAX(PARTY_NAME) PARTY_NAME FROM HZ_PARTIES GROUP BY PARTY_ID ) PRT,
+HR_ALL_ORGANIZATION_UNITS  ORG
+
+WHERE 
+1=1 
+-- Faktöring
+AND
+(Case
+When A.Class <> 'BR' Then A.CUSTOMER_ID 
+Else 
+(Select br_trx.BILL_TO_CUSTOMER_ID  From
+RA_CUSTOMER_TRX_LINES_ALL lines
+Inner Join RA_CUSTOMER_TRX_ALL br_trx 
+ON lines.BR_REF_Customer_TRX_Id = br_trx.customer_trx_id Where Rownum <= 1 and A.Customer_Trx_Id = lines.Customer_Trx_Id )
+End = C.CUST_ACCOUNT_ID)
+
+-- Faktöring Alt Müşteri 
+And (Case
+When A.Class <> 'BR' Then C.PARTY_ID 
+Else 
+(Select cust.party_id  From
+RA_CUSTOMER_TRX_LINES_ALL lines
+Inner Join RA_CUSTOMER_TRX_ALL br_trx
+    Inner Join HZ_CUST_ACCOUNTS cust
+    ON br_trx.BILL_TO_CUSTOMER_ID = cust.CUST_ACCOUNT_ID  
+ON lines.BR_REF_Customer_TRX_Id = br_trx.customer_trx_id Where Rownum <= 1 and A.Customer_Trx_Id = lines.Customer_Trx_Id )
+End = PRT.PARTY_ID)
+
+AND ORG.ORGANIZATION_ID = A.ORG_ID 
+
+-- Reverse kayıtların gelmemesi için yazıldı
+AND ((A.CASH_RECEIPT_ID is NULL) OR ((Select casRec.status From AR_CASH_RECEIPTS_ALL casRec Where A.CASH_RECEIPT_ID = casRec.CASH_RECEIPT_ID ) <> 'REV'))
+
+-- PARAMETRE EKRANINDAN SECILEN ORG. TANIMININ ID SINI GONDERIYOR !!
+AND A.TRX_DATE < TO_DATE(TO_CHAR(:P_DATE_FROM,'YYYY/MM/DD'),'YYYY/MM/DD')
+)DVR
+GROUP BY 
+rec_type,
+account_number,
+account_name,
+DUE_DATE,
+TRX_NUMBER,
+CLASS,
+INVOICE_CURRENCY_CODE,
+sirket,
+SIRKETID
+) 
+where 
+1=1  
+AND Trim(account_name) = Trim(:p_party_name)
+AND SIRKETID = :p_businessunit_id
+order by trx_date, Rec_Type,account_number,INVOICE_CURRENCY_CODE
