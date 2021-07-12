@@ -259,7 +259,7 @@ Inner Join XLA_EVENTS xeve
     Inner Join XLA_TRANSACTION_ENTITIES xtra
     ON xtra.application_id = xeve.application_id and xtra.Entity_Id = xeve.Entity_Id
 ON xeve.application_id = xlad.application_id and xeve.event_id = xlad.event_id
-Where xlad.AE_HEADER_ID = xlin.AE_HEADER_ID AND xlad.application_id = xlin.application_id ) Where Rownum <= 1)
+Where xlad.AE_HEADER_ID = xlin.AE_HEADER_ID AND xlad.application_id = xlin.application_id and xtra.Transaction_Number is not null ) Where Rownum <= 1)
 as TransNumber,
 
 gll.JE_LINE_NUM as LineNumber,

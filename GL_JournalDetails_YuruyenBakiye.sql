@@ -3,7 +3,6 @@ Select
 GLDetail.AE_HEADER_ID,
 GLDetail.AE_LINE_NUM,
 GLDetail.Invoice_Num,
-GLDetail.TransNumber,
 GLDetail.LedgerName,
 GLDetail.Period,
 GLDetail.BatchName,
@@ -26,7 +25,7 @@ GLDetail.AccountDesc,
 GLDetail.AccountedDebit,
 GLDetail.AccountedCrebit,
 GLDetail.Balance,
-Sum(GLDetail.Balance) Over (Order By GLDetail.EffectiveDate, GLDetail.JournalName, GLDetail.LineNumber) as YuruyenAccBalance,
+Sum(GLDetail.Balance) Over (Order By GLDetail.EffectiveDate, GLDetail.JournalName, GLDetail.LineNumber) as YuruyenBalance,
 GLDetail.EnteredDebit,
 GLDetail.EnteredCrebit,
 GLDetail.EnteredBalance,
@@ -93,14 +92,6 @@ Else
 Where xlad.AE_HEADER_ID = xlin.AE_HEADER_ID AND xlad.AE_LINE_NUM = xlin.AE_LINE_NUM AND xlad.EVENT_CLASS_CODE = 'INVOICES' and Rownum <= 1 )
 End
 as Invoice_Num,
-
-(Select * From (Select Distinct xtra.Transaction_Number From XLA_AE_HEADERS xlad
-Inner Join XLA_EVENTS xeve 
-    Inner Join XLA_TRANSACTION_ENTITIES xtra
-    ON xtra.application_id = xeve.application_id and xtra.Entity_Id = xeve.Entity_Id
-ON xeve.application_id = xlad.application_id and xeve.event_id = xlad.event_id
-Where xlad.AE_HEADER_ID = xlin.AE_HEADER_ID AND xlad.application_id = xlin.application_id and xtra.Transaction_Number is not null ) Where Rownum <= 1)
-as TransNumber,
 
 Substr(gcc.Segment2,1,3) AccountThree,
 gcc.Segment2 Account,
